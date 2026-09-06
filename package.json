@@ -1,0 +1,19 @@
+{
+  "name": "gists",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gists social messaging platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:mobile": "npm run dev --workspace=apps/mobile",
+    "dev:admin": "npm run dev --workspace=apps/admin",
+    "dev:server": "npm run dev --workspace=apps/server",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "npm run format --workspaces --if-present"
+  }
+}
