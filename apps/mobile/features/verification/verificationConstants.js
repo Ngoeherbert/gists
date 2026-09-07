@@ -1,0 +1,82 @@
+export const VERIFICATION_TYPES = {
+  IDENTITY: "identity",
+  PHONE: "phone",
+  EMAIL: "email",
+  CREATOR: "creator",
+  BUSINESS: "business",
+};
+
+export const VERIFICATION_STATUS = {
+  NOT_STARTED: "not_started",
+  PENDING: "pending",
+  IN_REVIEW: "in_review",
+  VERIFIED: "verified",
+  REJECTED: "rejected",
+  EXPIRED: "expired",
+  SUSPENDED: "suspended",
+};
+
+export const VERIFICATION_LEVELS = {
+  NONE: "none",
+  BASIC: "basic",
+  VERIFIED: "verified",
+  PREMIUM: "premium",
+};
+
+export const KYC_STATUS = {
+  NOT_STARTED: "not_started",
+  PENDING: "pending",
+  IN_REVIEW: "in_review",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  EXPIRED: "expired",
+};
+
+export const KYC_DOCUMENT_TYPES = {
+  NATIONAL_ID: "national_id",
+  PASSPORT: "passport",
+  DRIVERS_LICENSE: "drivers_license",
+  RESIDENCE_PERMIT: "residence_permit",
+};
+
+export const VERIFICATION_ACTIONS = {
+  START: "start",
+  SUBMIT: "submit",
+  RESUBMIT: "resubmit",
+  CANCEL: "cancel",
+  VIEW: "view",
+  UPDATE: "update",
+};
+
+export const VERIFICATION_ERRORS = {
+  INVALID_ID: "INVALID_ID",
+  INVALID_STATUS: "INVALID_STATUS",
+  INVALID_DOCUMENT: "INVALID_DOCUMENT",
+  DOCUMENT_REQUIRED: "DOCUMENT_REQUIRED",
+  DOCUMENT_EXPIRED: "DOCUMENT_EXPIRED",
+  VERIFICATION_PENDING: "VERIFICATION_PENDING",
+  ALREADY_VERIFIED: "ALREADY_VERIFIED",
+  VERIFICATION_REJECTED: "VERIFICATION_REJECTED",
+  KYC_REQUIRED: "KYC_REQUIRED",
+  KYC_PENDING: "KYC_PENDING",
+  KYC_REJECTED: "KYC_REJECTED",
+  SUBMISSION_FAILED: "SUBMISSION_FAILED",
+};
+
+export const VERIFICATION_LIMITS = {
+  MAX_DOCUMENTS: 5,
+  MAX_DOCUMENT_SIZE: 10 * 1024 * 1024,
+  MAX_NOTE_LENGTH: 1000,
+  MAX_REJECTION_REASON_LENGTH: 1000,
+};
+
+export default {
+  VERIFICATION_TYPES,
+  VERIFICATION_STATUS,
+  VERIFICATION_LEVELS,
+  KYC_STATUS,
+  KYC_DOCUMENT_TYPES,
+  VERIFICATION_ACTIONS,
+  VERIFICATION_ERRORS,
+  VERIFICATION_LIMITS,
+};
