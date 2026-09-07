@@ -22,34 +22,58 @@ export default function PostActions({
   return (
     <View style={styles.container}>
       <View style={styles.leftActions}>
-        <ReactionButton reacted={liked} count={likeCount} onPress={onLike} />
+        <View style={styles.action}>
+          <ReactionButton reacted={liked} count={likeCount} onPress={onLike} />
+        </View>
 
-        <CommentButton count={commentCount} onPress={onComment} />
+        <View style={styles.action}>
+          <CommentButton count={commentCount} onPress={onComment} />
+        </View>
 
-        <RepostButton
-          reposted={reposted}
-          count={repostCount}
-          onPress={onRepost}
-        />
+        <View style={styles.action}>
+          <RepostButton
+            reposted={reposted}
+            count={repostCount}
+            onPress={onRepost}
+          />
+        </View>
 
-        <ShareButton onPress={onShare} />
+        <View style={styles.shareAction}>
+          <ShareButton onPress={onShare} />
+        </View>
       </View>
 
-      <SaveButton saved={saved} onPress={onSave} />
+      <View style={styles.saveAction}>
+        <SaveButton saved={saved} onPress={onSave} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    minHeight: 52,
-    paddingHorizontal: 12,
+    minHeight: 56,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   leftActions: {
     flexDirection: "row",
     alignItems: "center",
+  },
+
+  action: {
+    marginRight: 12,
+  },
+
+  shareAction: {
+    marginLeft: -8,
+  },
+
+  saveAction: {
+    marginLeft: 12,
   },
 });

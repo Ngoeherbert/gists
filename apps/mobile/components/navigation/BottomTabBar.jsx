@@ -1,25 +1,48 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  Ionicons,
+  MaterialIcons,
+  MaterialCommunityIcons,
+  Feather,
+  FontAwesome,
+  FontAwesome5,
+  Entypo,
+  AntDesign,
+} from "@expo/vector-icons";
+
+const ICON_LIBRARIES = {
+  Ionicons,
+  MaterialIcons,
+  MaterialCommunityIcons,
+  Feather,
+  FontAwesome,
+  FontAwesome5,
+  Entypo,
+  AntDesign,
+};
 
 const DEFAULT_TABS = [
   {
     key: "feeds",
     label: "Feeds",
-    icon: "home-outline",
+    icon: "home",
     activeIcon: "home",
+    iconLibrary: "Feather",
   },
   {
     key: "reels",
     label: "Reel",
-    icon: "play-circle-outline",
+    icon: "youtube",
     activeIcon: "play-circle",
+    iconLibrary: "Feather",
   },
   {
     key: "create",
     label: "Create",
     icon: "add",
     activeIcon: "add",
+    iconLibrary: "Ionicons",
     isCreate: true,
   },
   {
@@ -27,14 +50,36 @@ const DEFAULT_TABS = [
     label: "Chats",
     icon: "chatbubble-outline",
     activeIcon: "chatbubble",
+    iconLibrary: "Ionicons",
   },
   {
     key: "profile",
     label: "Profile",
     icon: "person-outline",
     activeIcon: "person",
+    iconLibrary: "Ionicons",
   },
 ];
+
+function TabIcon({ tab, active }) {
+  const libraryName = active
+    ? tab.activeIconLibrary || tab.iconLibrary || "Ionicons"
+    : tab.iconLibrary || "Ionicons";
+
+  const IconComponent = ICON_LIBRARIES[libraryName] || Ionicons;
+
+  const iconName = active ? tab.activeIcon || tab.icon : tab.icon;
+
+  const iconSize = active
+    ? tab.activeIconSize || tab.iconSize || (tab.isCreate ? 28 : 23)
+    : tab.iconSize || (tab.isCreate ? 28 : 23);
+
+  const iconColor = active
+    ? tab.activeIconColor || tab.iconColor || (tab.isCreate ? "#fff" : "#000")
+    : tab.iconColor || (tab.isCreate ? "#fff" : "#888");
+
+  return <IconComponent name={iconName} size={iconSize} color={iconColor} />;
+}
 
 export default function BottomTabBar({
   activeTab = "feeds",
@@ -42,6 +87,12 @@ export default function BottomTabBar({
   tabs = DEFAULT_TABS,
   unreadCount = 0,
 }) {
+  const handleTabPress = (tab) => {
+    if (typeof onTabPress === "function") {
+      onTabPress(tab.key);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.bar}>
@@ -51,23 +102,21 @@ export default function BottomTabBar({
           return (
             <Pressable
               key={tab.key}
-              onPress={() => onTabPress?.(tab.key)}
+              onPress={() => handleTabPress(tab)}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={tab.label}
+              hitSlop={6}
               style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
             >
               <View
                 style={[
                   styles.iconWrapper,
                   tab.isCreate && styles.createButton,
+                  active && !tab.isCreate && styles.activeIconWrapper,
                 ]}
               >
-                <Ionicons
-                  name={active ? tab.activeIcon : tab.icon}
-                  size={tab.isCreate ? 28 : 23}
-                  color={tab.isCreate ? "#fff" : active ? "#000" : "#888"}
-                />
+                <TabIcon tab={tab} active={active} />
 
                 {tab.key === "chats" && unreadCount > 0 ? (
                   <View style={styles.badge}>
@@ -79,9 +128,16 @@ export default function BottomTabBar({
               </View>
 
               {!tab.isCreate ? (
-                <Text style={[styles.label, active && styles.activeLabel]}>
-                  {tab.label}
-                </Text>
+                <View style={styles.labelContainer}>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.label, active && styles.activeLabel]}
+                  >
+                    {tab.label}
+                  </Text>
+
+                  {active ? <View style={styles.activeIndicator} /> : null}
+                </View>
               ) : null}
             </Pressable>
           );
@@ -136,11 +192,21 @@ const styles = StyleSheet.create({
     position: "relative",
   },
 
+  activeIconWrapper: {
+    transform: [{ scale: 1.03 }],
+  },
+
   createButton: {
     width: 46,
     height: 46,
     borderRadius: 23,
     backgroundColor: "#000",
+  },
+
+  labelContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 19,
   },
 
   label: {
@@ -153,6 +219,14 @@ const styles = StyleSheet.create({
   activeLabel: {
     color: "#000",
     fontWeight: "800",
+  },
+
+  activeIndicator: {
+    width: 18,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#000",
+    marginTop: 3,
   },
 
   badge: {

@@ -21,16 +21,11 @@ export default function PostMedia({
       style={[
         styles.container,
         {
-          aspectRatio:
-            Number(aspectRatio) > 0 ? Number(aspectRatio) : 1,
+          aspectRatio: Number(aspectRatio) > 0 ? Number(aspectRatio) : 1,
         },
       ]}
     >
-      <Image
-        source={{ uri }}
-        resizeMode="cover"
-        style={styles.media}
-      />
+      <Image source={{ uri }} resizeMode="cover" style={styles.media} />
 
       {isVideo && (
         <View style={styles.playButton}>
@@ -39,11 +34,7 @@ export default function PostMedia({
       )}
 
       {isVideo && onMutePress && (
-        <Pressable
-          onPress={onMutePress}
-          hitSlop={8}
-          style={styles.muteButton}
-        >
+        <Pressable onPress={onMutePress} hitSlop={8} style={styles.muteButton}>
           <Ionicons
             name={muted ? "volume-mute" : "volume-high"}
             size={18}
@@ -57,14 +48,22 @@ export default function PostMedia({
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
+    width: "92%",
+    alignSelf: "center",
     overflow: "hidden",
     backgroundColor: "#EEEEEE",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    marginTop: 4,
+    marginBottom: 6,
   },
+
   media: {
     width: "100%",
     height: "100%",
   },
+
   playButton: {
     position: "absolute",
     left: 14,
@@ -77,6 +76,7 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
     backgroundColor: "rgba(0,0,0,0.55)",
   },
+
   muteButton: {
     position: "absolute",
     right: 14,
