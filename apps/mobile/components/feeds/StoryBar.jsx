@@ -8,6 +8,10 @@ export default function StoryBar({
   onStoryPress,
   onCreateStory,
 }) {
+  const currentUserId = String(
+    currentUser?.id ?? currentUser?.userId ?? currentUser?.user?.id,
+  );
+
   // Group stories by userId.
   const groupedStories = stories.reduce((groups, story) => {
     const userId = String(story?.userId ?? story?.id);
@@ -22,25 +26,38 @@ export default function StoryBar({
   }, {});
 
   // One avatar per user.
-  const userStories = Object.values(groupedStories).map((storyGroup) => {
-    const firstStory = storyGroup[0];
+  const userStories = Object.values(groupedStories)
+    .map((storyGroup) => {
+      const firstStory = storyGroup[0];
 
-    return {
-      ...firstStory,
+      return {
+        ...firstStory,
 
-      // Keep all stories belonging to this user.
-      storyGroup,
+        // Keep all stories belonging to this user.
+        storyGroup,
 
-      // Stable ID for the avatar.
-      id: `user-${firstStory.userId}`,
-    };
-  });
+        // Stable ID for the avatar.
+        id: `user-${firstStory.userId}`,
+      };
+    })
+    // Exclude the current user's own group; it is rendered
+    // as the leading "my-story" card instead.
+    .filter((item) => String(item?.userId ?? item?.id) !== currentUserId);
+
+  // Find the current user's own story group, if any.
+  const ownStoryGroup = currentUserId
+    ? groupedStories[currentUserId] || []
+    : [];
+
+  const ownFirstStory = ownStoryGroup[0] || {};
 
   const items = [
     {
       id: "my-story",
       ...(currentUser || {}),
+      ...ownFirstStory,
       isOwn: true,
+      storyGroup: ownStoryGroup,
     },
     ...userStories,
   ];
@@ -61,6 +78,16 @@ export default function StoryBar({
             isOwn={item.isOwn}
             onPress={() => {
               if (item.isOwn) {
+                if (item.storyGroup && item.storyGroup.length > 0) {
+                  // The user already has stories; open the viewer.
+                  onStoryPress?.({
+                    ...item,
+                    stories: item.storyGroup,
+                  });
+                  return;
+                }
+
+                // No stories yet; open the creator.
                 onCreateStory?.();
                 return;
               }

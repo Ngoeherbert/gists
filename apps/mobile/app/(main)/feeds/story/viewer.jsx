@@ -1,4 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 import {
   ActivityIndicator,
   Animated,
@@ -13,19 +20,15 @@ import {
   TextInput,
   View,
 } from "react-native";
+
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+
 import { router, useLocalSearchParams } from "expo-router";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 
-/*
- * STORY DURATION
- *
- * 5000  = 5 seconds
- * 7000  = 7 seconds
- * 10000 = 10 seconds
- */
 const STORY_DURATION = 7000;
 
 const DEFAULT_STORY = {
@@ -39,12 +42,36 @@ const DEFAULT_STORY = {
 };
 
 const REACTIONS = [
-  { id: "like", emoji: "👍", label: "Like" },
-  { id: "love", emoji: "❤️", label: "Love" },
-  { id: "laugh", emoji: "😂", label: "Haha" },
-  { id: "wow", emoji: "😮", label: "Wow" },
-  { id: "sad", emoji: "😢", label: "Sad" },
-  { id: "fire", emoji: "🔥", label: "Fire" },
+  {
+    id: "like",
+    emoji: "👍",
+    label: "Like",
+  },
+  {
+    id: "love",
+    emoji: "❤️",
+    label: "Love",
+  },
+  {
+    id: "laugh",
+    emoji: "😂",
+    label: "Haha",
+  },
+  {
+    id: "wow",
+    emoji: "😮",
+    label: "Wow",
+  },
+  {
+    id: "sad",
+    emoji: "😢",
+    label: "Sad",
+  },
+  {
+    id: "fire",
+    emoji: "🔥",
+    label: "Fire",
+  },
 ];
 
 export default function StoryViewerScreen() {
@@ -52,15 +79,35 @@ export default function StoryViewerScreen() {
 
   /*
    * --------------------------------------------------
+   * CURRENT USER
+   *
+   * Used to detect whether the viewer is
+   * showing the user's own stories.
+   * --------------------------------------------------
+   */
+
+  const currentUser = useMemo(() => {
+    const raw = params.currentUser;
+
+    if (typeof raw !== "string" || !raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      console.warn("Unable to parse currentUser:", error);
+
+      return null;
+    }
+  }, [params.currentUser]);
+
+  const currentUserId = currentUser?.id ?? currentUser?.userId ?? null;
+
+  /*
+   * --------------------------------------------------
    * STORIES
    * --------------------------------------------------
-   *
-   * Feed should pass:
-   *
-   * stories: JSON.stringify(stories)
-   * index: String(index)
-   *
-   * The viewer then controls the entire story sequence.
    */
 
   const stories = useMemo(() => {
@@ -69,11 +116,46 @@ export default function StoryViewerScreen() {
         const parsed = JSON.parse(params.stories);
 
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item, index) => ({
-            ...DEFAULT_STORY,
-            ...item,
-            id: item?.id || `story-${index}`,
-          }));
+          return parsed.map((item, index) => {
+            const storyItem = item || {};
+
+            const uri =
+              storyItem?.uri ||
+              storyItem?.url ||
+              storyItem?.mediaUrl ||
+              storyItem?.imageUrl ||
+              storyItem?.media?.url ||
+              null;
+
+            return {
+              ...DEFAULT_STORY,
+              ...storyItem,
+
+              id: storyItem?.id || `story-${index}`,
+
+              uri,
+
+              username:
+                storyItem?.username ||
+                storyItem?.user?.username ||
+                DEFAULT_STORY.username,
+
+              avatar:
+                storyItem?.avatar ||
+                storyItem?.avatarUrl ||
+                storyItem?.user?.avatar ||
+                DEFAULT_STORY.avatar,
+
+              userId: storyItem?.userId || storyItem?.user?.id || null,
+
+              type: storyItem?.type || DEFAULT_STORY.type,
+
+              text: storyItem?.text || "",
+
+              backgroundColor:
+                storyItem?.backgroundColor || DEFAULT_STORY.backgroundColor,
+            };
+          });
         }
       } catch (error) {
         console.warn("Unable to parse stories:", error);
@@ -81,13 +163,12 @@ export default function StoryViewerScreen() {
     }
 
     /*
-     * Backward compatibility:
-     * If Feed still sends a single story,
-     * create a one-item story array.
+     * Backward compatibility.
      */
     return [
       {
         ...DEFAULT_STORY,
+
         username:
           typeof params.username === "string"
             ? params.username
@@ -110,6 +191,8 @@ export default function StoryViewerScreen() {
           typeof params.backgroundColor === "string"
             ? params.backgroundColor
             : DEFAULT_STORY.backgroundColor,
+
+        userId: typeof params.userId === "string" ? params.userId : null,
       },
     ];
   }, [
@@ -120,7 +203,14 @@ export default function StoryViewerScreen() {
     params.type,
     params.text,
     params.backgroundColor,
+    params.userId,
   ]);
+
+  /*
+   * --------------------------------------------------
+   * INITIAL INDEX
+   * --------------------------------------------------
+   */
 
   const initialIndex = useMemo(() => {
     const parsedIndex =
@@ -135,21 +225,72 @@ export default function StoryViewerScreen() {
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
+  /*
+   * If params.index changes because
+   * Expo Router reuses the screen,
+   * keep the viewer synchronized.
+   */
+  useEffect(() => {
+    setCurrentIndex(initialIndex);
+  }, [initialIndex]);
+
   const story = stories[currentIndex] || DEFAULT_STORY;
+
+  /*
+   * --------------------------------------------------
+   * STORY TYPE
+   * --------------------------------------------------
+   */
+
+  const isTextStory = story.type === "text" || Boolean(story.text);
+
+  /*
+   * --------------------------------------------------
+   * MEDIA STATE
+   * --------------------------------------------------
+   */
+
+  const [mediaLoading, setMediaLoading] = useState(false);
+
+  const [mediaError, setMediaError] = useState(false);
+
+  const [mediaReady, setMediaReady] = useState(false);
+
+  /*
+   * Every time the active story changes,
+   * reset its media state.
+   */
+  useEffect(() => {
+    if (isTextStory) {
+      setMediaLoading(false);
+      setMediaError(false);
+      setMediaReady(true);
+      return;
+    }
+
+    if (story?.uri) {
+      setMediaLoading(true);
+      setMediaError(false);
+      setMediaReady(false);
+    } else {
+      /*
+       * No URI means this story cannot load.
+       * Do not keep the viewer spinning forever.
+       */
+      setMediaLoading(false);
+      setMediaError(true);
+      setMediaReady(true);
+    }
+  }, [story?.id, story?.uri, story?.type, isTextStory]);
 
   /*
    * --------------------------------------------------
    * USER GROUPS
    * --------------------------------------------------
-   *
-   * Stories are grouped by userId (never by name,
-   * username or story id). Each group holds all the
-   * stories belonging to one user, in order.
    */
 
   const userGroups = useMemo(() => {
     const groups = [];
-
     const map = new Map();
 
     stories.forEach((item) => {
@@ -170,9 +311,9 @@ export default function StoryViewerScreen() {
   }, [stories]);
 
   /*
-   * The group the CURRENT story belongs to.
-   * Moving to another user automatically switches
-   * the active group (and its segment count).
+   * --------------------------------------------------
+   * ACTIVE USER GROUP
+   * --------------------------------------------------
    */
 
   const activeGroup = useMemo(() => {
@@ -186,9 +327,9 @@ export default function StoryViewerScreen() {
   }, [userGroups, story]);
 
   /*
-   * Index of the current story WITHIN its user group.
-   * Used by the progress indicator so the number of
-   * segments equals the current user's story count.
+   * --------------------------------------------------
+   * GROUP STORY INDEX
+   * --------------------------------------------------
    */
 
   const groupStoryIndex = useMemo(() => {
@@ -201,13 +342,8 @@ export default function StoryViewerScreen() {
 
   /*
    * --------------------------------------------------
-   * STORY SWITCH TRANSITION
+   * STORY TRANSITION
    * --------------------------------------------------
-   *
-   * When the story (or the active user) changes, the
-   * content fades in and slides slightly from the
-   * direction of the switch using a cubic easing so
-   * the transition feels natural.
    */
 
   const transitionOpacity = useRef(new Animated.Value(0)).current;
@@ -221,28 +357,17 @@ export default function StoryViewerScreen() {
 
     previousStoryIdRef.current = story?.id;
 
-    /*
-     * First render: show content immediately,
-     * no transition.
-     */
     if (previousStoryId === story?.id) {
       transitionOpacity.setValue(1);
       transitionTranslateX.setValue(0);
-
       return;
     }
 
-    /*
-     * Sliding direction:
-     * - next story  -> slides in from the right
-     * - prev story  -> slides in from the left
-     */
-    const direction =
-      stories.findIndex(
-        (item) => String(item?.id) === String(previousStoryId),
-      ) < currentIndex
-        ? 1
-        : -1;
+    const previousIndex = stories.findIndex(
+      (item) => String(item?.id) === String(previousStoryId),
+    );
+
+    const direction = previousIndex < currentIndex ? 1 : -1;
 
     transitionOpacity.setValue(0);
 
@@ -273,24 +398,18 @@ export default function StoryViewerScreen() {
 
   /*
    * --------------------------------------------------
-   * STORY PROGRESS
+   * PROGRESS
    * --------------------------------------------------
    */
 
   const [progress, setProgress] = useState(0);
+
   const progressRef = useRef(0);
 
   const [paused, setPaused] = useState(false);
 
-  /*
-   * Used to calculate elapsed time correctly
-   * when a story is paused/resumed.
-   */
   const storyStartedAtRef = useRef(Date.now());
 
-  /*
-   * Prevent duplicate transitions.
-   */
   const storyFinishedRef = useRef(false);
 
   /*
@@ -315,7 +434,7 @@ export default function StoryViewerScreen() {
 
   /*
    * --------------------------------------------------
-   * MORE MENU
+   * MORE
    * --------------------------------------------------
    */
 
@@ -335,7 +454,7 @@ export default function StoryViewerScreen() {
 
   /*
    * --------------------------------------------------
-   * FLOATING REACTION ANIMATION
+   * FLOATING REACTION
    * --------------------------------------------------
    */
 
@@ -357,31 +476,33 @@ export default function StoryViewerScreen() {
 
   /*
    * --------------------------------------------------
-   * RESET STORY
+   * RESET TIMER
    * --------------------------------------------------
    */
 
-  const resetStoryTimer = () => {
+  const resetStoryTimer = useCallback(() => {
     progressRef.current = 0;
+
     setProgress(0);
 
     storyFinishedRef.current = false;
 
     storyStartedAtRef.current = Date.now();
-  };
+  }, []);
 
   /*
    * --------------------------------------------------
-   * GO TO NEXT STORY
+   * NEXT STORY
    * --------------------------------------------------
    */
 
-  const handleNextStory = () => {
+  const handleNextStory = useCallback(() => {
+    if (storyFinishedRef.current) {
+      return;
+    }
+
     storyFinishedRef.current = true;
 
-    /*
-     * There is another story.
-     */
     if (currentIndex < stories.length - 1) {
       const nextIndex = currentIndex + 1;
 
@@ -394,12 +515,10 @@ export default function StoryViewerScreen() {
 
       storyFinishedRef.current = false;
 
-      /*
-       * Close overlays when moving
-       * to another story.
-       */
       setReactionModalVisible(false);
+
       setMoreModalVisible(false);
+
       setCommentInputVisible(false);
 
       setComment("");
@@ -410,21 +529,26 @@ export default function StoryViewerScreen() {
     /*
      * No more stories.
      *
-     * Only now return to Feed.
+     * Go back instead of replace().
+     * This keeps the feed in the navigation
+     * stack and makes the X behave naturally.
      */
-    router.replace("/(main)/feeds");
-  };
+    setPaused(true);
+
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(main)/feeds");
+    }
+  }, [currentIndex, stories.length]);
 
   /*
    * --------------------------------------------------
-   * GO TO PREVIOUS STORY
+   * PREVIOUS STORY
    * --------------------------------------------------
    */
 
-  const handlePreviousStory = () => {
-    /*
-     * Previous story exists.
-     */
+  const handlePreviousStory = useCallback(() => {
     if (currentIndex > 0) {
       const previousIndex = currentIndex - 1;
 
@@ -438,7 +562,9 @@ export default function StoryViewerScreen() {
       storyFinishedRef.current = false;
 
       setReactionModalVisible(false);
+
       setMoreModalVisible(false);
+
       setCommentInputVisible(false);
 
       setComment("");
@@ -446,30 +572,25 @@ export default function StoryViewerScreen() {
       return;
     }
 
-    /*
-     * Already on first story.
-     *
-     * Tapping the left side restarts it.
-     */
     resetStoryTimer();
-  };
+  }, [currentIndex, resetStoryTimer]);
 
   /*
    * --------------------------------------------------
    * STORY TIMER
    * --------------------------------------------------
    *
-   * The timer:
-   *
-   * 1. Starts at 0.
-   * 2. Moves continuously toward 100%.
-   * 3. Pauses when paused=true.
-   * 4. Resumes from the same position.
-   * 5. Automatically advances when complete.
+   * IMPORTANT:
+   * The timer does not start until
+   * the story media is ready.
    */
 
   useEffect(() => {
     if (paused) {
+      return;
+    }
+
+    if (!mediaReady) {
       return;
     }
 
@@ -488,8 +609,6 @@ export default function StoryViewerScreen() {
       setProgress(nextProgress);
 
       if (nextProgress >= 1 && !storyFinishedRef.current) {
-        storyFinishedRef.current = true;
-
         clearInterval(interval);
 
         handleNextStory();
@@ -499,19 +618,60 @@ export default function StoryViewerScreen() {
     return () => {
       clearInterval(interval);
     };
-  }, [paused, currentIndex]);
+  }, [paused, currentIndex, mediaReady, handleNextStory]);
 
   /*
    * --------------------------------------------------
-   * CLOSE
+   * CLOSE VIEWER
    * --------------------------------------------------
    */
 
-  const handleClose = () => {
-    setPaused(false);
+  const handleClose = useCallback(() => {
+    /*
+     * Stop all story activity first.
+     */
+    setPaused(true);
 
+    setReactionModalVisible(false);
+
+    setMoreModalVisible(false);
+
+    setCommentInputVisible(false);
+
+    /*
+     * The viewer was opened with router.push(),
+     * therefore router.back() is the correct way
+     * to close it.
+     */
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    /*
+     * Fallback in case the screen
+     * was opened directly.
+     */
     router.replace("/(main)/feeds");
-  };
+  }, []);
+
+  /*
+   * --------------------------------------------------
+   * ADD STORY
+   *
+   * Opens the story creator when the user
+   * is viewing their own stories.
+   * --------------------------------------------------
+   */
+
+  const isOwnStory = Boolean(
+    currentUserId &&
+      String(story?.userId ?? story?.id) === String(currentUserId),
+  );
+
+  const handleAddStory = useCallback(() => {
+    router.push("/(main)/feeds/story/create");
+  }, []);
 
   /*
    * --------------------------------------------------
@@ -519,13 +679,18 @@ export default function StoryViewerScreen() {
    * --------------------------------------------------
    */
 
-  const handleTapNext = () => {
+  const handleTapNext = useCallback(() => {
     if (reactionModalVisible || moreModalVisible || commentInputVisible) {
       return;
     }
 
     handleNextStory();
-  };
+  }, [
+    reactionModalVisible,
+    moreModalVisible,
+    commentInputVisible,
+    handleNextStory,
+  ]);
 
   /*
    * --------------------------------------------------
@@ -533,22 +698,28 @@ export default function StoryViewerScreen() {
    * --------------------------------------------------
    */
 
-  const handleTapPrevious = () => {
+  const handleTapPrevious = useCallback(() => {
     if (reactionModalVisible || moreModalVisible || commentInputVisible) {
       return;
     }
 
     handlePreviousStory();
-  };
+  }, [
+    reactionModalVisible,
+    moreModalVisible,
+    commentInputVisible,
+    handlePreviousStory,
+  ]);
 
   /*
    * --------------------------------------------------
-   * REACTION PICKER
+   * REACTIONS
    * --------------------------------------------------
    */
 
-  const openReactions = () => {
+  const openReactions = useCallback(() => {
     setMoreModalVisible(false);
+
     setCommentInputVisible(false);
 
     setPaused(true);
@@ -556,7 +727,9 @@ export default function StoryViewerScreen() {
     setReactionModalVisible(true);
 
     reactionScale.setValue(0.72);
+
     reactionOpacity.setValue(0);
+
     reactionTranslateY.setValue(18);
 
     Animated.parallel([
@@ -581,9 +754,9 @@ export default function StoryViewerScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  };
+  }, [reactionScale, reactionOpacity, reactionTranslateY]);
 
-  const closeReactions = () => {
+  const closeReactions = useCallback(() => {
     Animated.parallel([
       Animated.timing(reactionScale, {
         toValue: 0.75,
@@ -605,9 +778,10 @@ export default function StoryViewerScreen() {
       }),
     ]).start(() => {
       setReactionModalVisible(false);
+
       setPaused(false);
     });
-  };
+  }, [reactionScale, reactionOpacity, reactionTranslateY]);
 
   /*
    * --------------------------------------------------
@@ -615,93 +789,91 @@ export default function StoryViewerScreen() {
    * --------------------------------------------------
    */
 
-  const handleReaction = (reaction) => {
-    setSelectedReaction(reaction);
+  const handleReaction = useCallback(
+    (reaction) => {
+      setSelectedReaction(reaction);
 
-    setReactionModalVisible(false);
+      setReactionModalVisible(false);
 
-    setPaused(true);
+      setPaused(true);
 
-    reactionFloatScale.setValue(0.72);
-    reactionFloatOpacity.setValue(0);
-    reactionFloatTranslateY.setValue(30);
+      reactionFloatScale.setValue(0.72);
 
-    Animated.parallel([
-      /*
-       * Smooth scale.
-       */
-      Animated.sequence([
-        Animated.timing(reactionFloatScale, {
-          toValue: 1.02,
-          duration: 150,
+      reactionFloatOpacity.setValue(0);
+
+      reactionFloatTranslateY.setValue(30);
+
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(reactionFloatScale, {
+            toValue: 1.02,
+            duration: 150,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+
+          Animated.timing(reactionFloatScale, {
+            toValue: 0.92,
+            duration: 750,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+
+        Animated.sequence([
+          Animated.timing(reactionFloatOpacity, {
+            toValue: 1,
+            duration: 80,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+
+          Animated.timing(reactionFloatOpacity, {
+            toValue: 0,
+            duration: 820,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+
+        Animated.timing(reactionFloatTranslateY, {
+          toValue: -170,
+          duration: 900,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-
-        Animated.timing(reactionFloatScale, {
-          toValue: 0.92,
-          duration: 750,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-
-      /*
-       * Fade in and continuously fade out.
-       */
-      Animated.sequence([
-        Animated.timing(reactionFloatOpacity, {
-          toValue: 1,
-          duration: 80,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-
-        Animated.timing(reactionFloatOpacity, {
-          toValue: 0,
-          duration: 820,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-
-      /*
-       * Continuous upward movement.
-       */
-      Animated.timing(reactionFloatTranslateY, {
-        toValue: -170,
-        duration: 900,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setPaused(false);
-    });
-  };
+      ]).start(() => {
+        setPaused(false);
+      });
+    },
+    [reactionFloatScale, reactionFloatOpacity, reactionFloatTranslateY],
+  );
 
   /*
    * --------------------------------------------------
-   * COMMENTS / REPLY
+   * COMMENTS
    * --------------------------------------------------
    */
 
-  const openComments = () => {
+  const openComments = useCallback(() => {
     setReactionModalVisible(false);
+
     setMoreModalVisible(false);
 
     setPaused(true);
 
     setCommentInputVisible(true);
-  };
+  }, []);
 
-  const closeComments = () => {
+  const closeComments = useCallback(() => {
     setCommentInputVisible(false);
+
     setComment("");
 
     setPaused(false);
-  };
+  }, []);
 
-  const handleSendComment = () => {
+  const handleSendComment = useCallback(() => {
     const trimmedComment = comment.trim();
 
     if (!trimmedComment) {
@@ -709,7 +881,7 @@ export default function StoryViewerScreen() {
     }
 
     /*
-     * Connect comment/reply API here.
+     * Connect comment API here.
      */
 
     setComment("");
@@ -717,7 +889,7 @@ export default function StoryViewerScreen() {
     setCommentInputVisible(false);
 
     setPaused(false);
-  };
+  }, [comment]);
 
   /*
    * --------------------------------------------------
@@ -725,8 +897,9 @@ export default function StoryViewerScreen() {
    * --------------------------------------------------
    */
 
-  const openMore = () => {
+  const openMore = useCallback(() => {
     setReactionModalVisible(false);
+
     setCommentInputVisible(false);
 
     setPaused(true);
@@ -734,6 +907,7 @@ export default function StoryViewerScreen() {
     setMoreModalVisible(true);
 
     moreScale.setValue(0.92);
+
     moreOpacity.setValue(0);
 
     Animated.parallel([
@@ -751,9 +925,9 @@ export default function StoryViewerScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  };
+  }, [moreScale, moreOpacity]);
 
-  const closeMore = () => {
+  const closeMore = useCallback(() => {
     Animated.parallel([
       Animated.timing(moreScale, {
         toValue: 0.94,
@@ -769,9 +943,10 @@ export default function StoryViewerScreen() {
       }),
     ]).start(() => {
       setMoreModalVisible(false);
+
       setPaused(false);
     });
-  };
+  }, [moreScale, moreOpacity]);
 
   /*
    * --------------------------------------------------
@@ -779,53 +954,96 @@ export default function StoryViewerScreen() {
    * --------------------------------------------------
    */
 
-  const handleDownload = () => {
+  const handleDownload = useCallback(() => {
     /*
      * Connect story download logic here.
      */
 
     closeMore();
-  };
+  }, [closeMore]);
 
-  const handleShare = () => {
+  const handleShare = useCallback(() => {
     /*
      * Connect native share/API here.
      */
 
     closeMore();
-  };
+  }, [closeMore]);
 
-  const handleHide = () => {
+  const handleHide = useCallback(() => {
     /*
      * Connect hide story API here.
      */
 
     closeMore();
-  };
+  }, [closeMore]);
 
-  const handleReport = () => {
+  const handleReport = useCallback(() => {
     /*
      * Connect report flow here.
      */
 
     closeMore();
-  };
+  }, [closeMore]);
 
-  const handleBlock = () => {
+  const handleBlock = useCallback(() => {
     /*
      * Connect block user API here.
      */
 
     closeMore();
-  };
+  }, [closeMore]);
 
   /*
    * --------------------------------------------------
-   * TEXT STORY
+   * MEDIA LOAD HANDLERS
    * --------------------------------------------------
    */
 
-  const isTextStory = story.type === "text" || Boolean(story.text);
+  const handleMediaLoadStart = useCallback(() => {
+    setMediaLoading(true);
+    setMediaError(false);
+    setMediaReady(false);
+  }, []);
+
+  const handleMediaLoad = useCallback(() => {
+    console.log("Story media loaded:", story?.uri);
+
+    setMediaLoading(false);
+    setMediaError(false);
+    setMediaReady(true);
+  }, [story?.uri]);
+
+  const handleMediaError = useCallback(
+    (error) => {
+      console.warn("Story media failed to load:", {
+        storyId: story?.id,
+        uri: story?.uri,
+        error: error?.nativeEvent,
+      });
+
+      /*
+       * Stop the infinite spinner.
+       */
+      setMediaLoading(false);
+
+      setMediaError(true);
+
+      /*
+       * Mark as ready so a broken story
+       * can automatically move on instead
+       * of trapping the viewer.
+       */
+      setMediaReady(true);
+    },
+    [story?.id, story?.uri],
+  );
+
+  /*
+   * --------------------------------------------------
+   * RENDER
+   * --------------------------------------------------
+   */
 
   return (
     <View
@@ -836,15 +1054,22 @@ export default function StoryViewerScreen() {
         },
       ]}
     >
+      {/* -------------------------------------------- */}
       {/* STORY CONTENT */}
+      {/* -------------------------------------------- */}
 
       <Animated.View
-        pointerEvents="box-none"
+        pointerEvents="none"
         style={[
           styles.storyTransition,
           {
             opacity: transitionOpacity,
-            transform: [{ translateX: transitionTranslateX }],
+
+            transform: [
+              {
+                translateX: transitionTranslateX,
+              },
+            ],
           },
         ]}
       >
@@ -853,26 +1078,69 @@ export default function StoryViewerScreen() {
             <Text style={styles.storyText}>{story.text}</Text>
           </View>
         ) : story.uri ? (
-          <Image
-            source={{ uri: story.uri }}
-            style={styles.media}
-            resizeMode="cover"
-          />
+          <>
+            <Image
+              source={{
+                uri: story.uri,
+              }}
+              style={styles.media}
+              resizeMode="cover"
+              onLoadStart={handleMediaLoadStart}
+              onLoad={handleMediaLoad}
+              onError={handleMediaError}
+            />
+
+            {/* IMAGE LOADING */}
+
+            {mediaLoading ? (
+              <View style={styles.mediaLoadingOverlay} pointerEvents="none">
+                <ActivityIndicator size="large" color="#FFFFFF" />
+              </View>
+            ) : null}
+
+            {/* IMAGE ERROR */}
+
+            {mediaError ? (
+              <View style={styles.mediaErrorOverlay} pointerEvents="none">
+                <View style={styles.mediaErrorIcon}>
+                  <Ionicons name="image-outline" size={32} color="#FFFFFF" />
+                </View>
+
+                <Text style={styles.mediaErrorTitle}>Story unavailable</Text>
+
+                <Text style={styles.mediaErrorText}>
+                  This story could not be loaded.
+                </Text>
+              </View>
+            ) : null}
+          </>
         ) : (
           <View style={styles.emptyStory}>
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <View style={styles.mediaErrorIcon}>
+              <Ionicons name="image-outline" size={32} color="#FFFFFF" />
+            </View>
+
+            <Text style={styles.mediaErrorTitle}>Story unavailable</Text>
+
+            <Text style={styles.mediaErrorText}>
+              No media was provided for this story.
+            </Text>
           </View>
         )}
       </Animated.View>
+
+      {/* -------------------------------------------- */}
+      {/* OVERLAY */}
+      {/* -------------------------------------------- */}
 
       <SafeAreaView
         style={styles.overlay}
         edges={["top", "bottom"]}
         pointerEvents="box-none"
       >
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* PROGRESS */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
         <View style={styles.progressContainer}>
           <View style={styles.progressSegments}>
@@ -905,14 +1173,19 @@ export default function StoryViewerScreen() {
           </View>
         </View>
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* HEADER */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
-        <View style={styles.header}>
+        <View style={styles.header} pointerEvents="box-none">
           <View style={styles.userInfo}>
             {story.avatar ? (
-              <Image source={{ uri: story.avatar }} style={styles.avatar} />
+              <Image
+                source={{
+                  uri: story.avatar,
+                }}
+                style={styles.avatar}
+              />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarInitial}>
@@ -928,9 +1201,13 @@ export default function StoryViewerScreen() {
             </View>
           </View>
 
+          {/* ------------------------------------ */}
+          {/* CLOSE BUTTON */}
+          {/* ------------------------------------ */}
+
           <Pressable
             onPress={handleClose}
-            hitSlop={10}
+            hitSlop={14}
             style={({ pressed }) => [
               styles.closeButton,
               pressed && styles.pressed,
@@ -940,15 +1217,41 @@ export default function StoryViewerScreen() {
           >
             <Ionicons name="close" size={29} color="#FFFFFF" />
           </Pressable>
+
+          {/* ------------------------------------ */}
+          {/* ADD STORY BUTTON (OWN STORIES) */}
+          {/* ------------------------------------ */}
+
+          {isOwnStory ? (
+            <Pressable
+              onPress={handleAddStory}
+              hitSlop={14}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Add Story"
+            >
+              <Ionicons name="add" size={29} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
         </View>
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* TAP ZONES */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
+        {/*
+         * IMPORTANT:
+         *
+         * These zones intentionally do NOT cover
+         * the header or bottom controls.
+         *
+         * Previously tapZones used absoluteFillObject,
+         * which could intercept the X button.
+         */}
 
         <View style={styles.tapZones} pointerEvents="box-none">
-          {/* LEFT = PREVIOUS */}
-
           <Pressable
             onPress={handleTapPrevious}
             onLongPress={() => setPaused(true)}
@@ -956,8 +1259,6 @@ export default function StoryViewerScreen() {
             accessibilityRole="button"
             accessibilityLabel="Previous Story"
           />
-
-          {/* RIGHT = NEXT */}
 
           <Pressable
             onPress={handleTapNext}
@@ -968,9 +1269,9 @@ export default function StoryViewerScreen() {
           />
         </View>
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* PAUSE INDICATOR */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
         {paused &&
         !commentInputVisible &&
@@ -981,9 +1282,9 @@ export default function StoryViewerScreen() {
           </View>
         ) : null}
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* FLOATING REACTION */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
         {selectedReaction ? (
           <Animated.View
@@ -992,6 +1293,7 @@ export default function StoryViewerScreen() {
               styles.reactionFloat,
               {
                 opacity: reactionFloatOpacity,
+
                 transform: [
                   {
                     translateY: reactionFloatTranslateY,
@@ -1009,9 +1311,9 @@ export default function StoryViewerScreen() {
           </Animated.View>
         ) : null}
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* REACTION PICKER */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
         {reactionModalVisible ? (
           <Pressable
@@ -1023,6 +1325,7 @@ export default function StoryViewerScreen() {
                 styles.reactionPicker,
                 {
                   opacity: reactionOpacity,
+
                   transform: [
                     {
                       scale: reactionScale,
@@ -1067,9 +1370,9 @@ export default function StoryViewerScreen() {
           </Pressable>
         ) : null}
 
-        {/* ------------------------------------------------ */}
-        {/* THREE DOT MENU */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
+        {/* MORE MENU */}
+        {/* ---------------------------------------- */}
 
         {moreModalVisible ? (
           <>
@@ -1080,6 +1383,7 @@ export default function StoryViewerScreen() {
                 styles.moreMenu,
                 {
                   opacity: moreOpacity,
+
                   transform: [
                     {
                       scale: moreScale,
@@ -1089,8 +1393,6 @@ export default function StoryViewerScreen() {
               ]}
             >
               <View style={styles.menuPointer} />
-
-              {/* DOWNLOAD */}
 
               <Pressable
                 style={({ pressed }) => [
@@ -1106,8 +1408,6 @@ export default function StoryViewerScreen() {
                 <Text style={styles.menuText}>Download</Text>
               </Pressable>
 
-              {/* SHARE */}
-
               <Pressable
                 style={({ pressed }) => [
                   styles.menuItem,
@@ -1122,8 +1422,6 @@ export default function StoryViewerScreen() {
                 <Text style={styles.menuText}>Share</Text>
               </Pressable>
 
-              {/* HIDE */}
-
               <Pressable
                 style={({ pressed }) => [
                   styles.menuItem,
@@ -1137,8 +1435,6 @@ export default function StoryViewerScreen() {
 
                 <Text style={styles.menuText}>Hide</Text>
               </Pressable>
-
-              {/* REPORT */}
 
               <Pressable
                 style={({ pressed }) => [
@@ -1155,8 +1451,6 @@ export default function StoryViewerScreen() {
               </Pressable>
 
               <View style={styles.menuDivider} />
-
-              {/* BLOCK */}
 
               <Pressable
                 style={({ pressed }) => [
@@ -1177,9 +1471,9 @@ export default function StoryViewerScreen() {
           </>
         ) : null}
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* REPLY INPUT */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
         {commentInputVisible ? (
           <KeyboardAvoidingView
@@ -1229,14 +1523,12 @@ export default function StoryViewerScreen() {
           </KeyboardAvoidingView>
         ) : null}
 
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
         {/* BOTTOM ACTIONS */}
-        {/* ------------------------------------------------ */}
+        {/* ---------------------------------------- */}
 
         {!commentInputVisible ? (
           <View style={styles.bottomArea}>
-            {/* REPLY */}
-
             <Pressable
               style={({ pressed }) => [
                 styles.replyButton,
@@ -1250,8 +1542,6 @@ export default function StoryViewerScreen() {
 
               <Text style={styles.replyText}>Reply</Text>
             </Pressable>
-
-            {/* REACTION */}
 
             <Pressable
               onPress={openReactions}
@@ -1275,8 +1565,6 @@ export default function StoryViewerScreen() {
                 />
               )}
             </Pressable>
-
-            {/* THREE DOTS */}
 
             <Pressable
               onPress={openMore}
@@ -1302,10 +1590,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#000000",
   },
 
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
-  },
+  /*
+   * STORY
+   */
 
   storyTransition: {
     ...StyleSheet.absoluteFillObject,
@@ -1322,6 +1609,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#000000",
+    paddingHorizontal: 30,
+  },
+
+  mediaLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
+
+  mediaErrorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: 30,
+  },
+
+  mediaErrorIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+
+  mediaErrorTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+
+  mediaErrorText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 6,
   },
 
   textStory: {
@@ -1340,6 +1667,15 @@ const styles = StyleSheet.create({
   },
 
   /*
+   * OVERLAY
+   */
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+  },
+
+  /*
    * PROGRESS
    */
 
@@ -1347,6 +1683,7 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 10,
     paddingTop: 5,
+    zIndex: 40,
   },
 
   progressSegments: {
@@ -1384,6 +1721,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    zIndex: 100,
+    elevation: 100,
   },
 
   userInfo: {
@@ -1437,19 +1776,32 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 110,
+    elevation: 110,
   },
 
   /*
    * TAP ZONES
+   *
+   * Notice:
+   *
+   * We DO NOT use absoluteFillObject.
+   *
+   * The zones start below the header
+   * and end above the bottom controls.
    */
 
   tapZones: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 95,
+    bottom: 100,
+    left: 0,
+    right: 0,
     flexDirection: "row",
-    zIndex: 0,
+    zIndex: 1,
   },
 
   leftZone: {
@@ -1512,7 +1864,7 @@ const styles = StyleSheet.create({
 
   reactionDismissArea: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 50,
+    zIndex: 200,
     alignItems: "center",
     justifyContent: "flex-end",
     paddingBottom: 72,
@@ -1575,7 +1927,7 @@ const styles = StyleSheet.create({
 
   moreDismissArea: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 55,
+    zIndex: 210,
   },
 
   moreMenu: {
@@ -1583,11 +1935,8 @@ const styles = StyleSheet.create({
     right: 14,
     bottom: 61,
     width: 178,
-
     backgroundColor: "#FFFFFF",
-
     borderRadius: 16,
-
     paddingVertical: 5,
 
     shadowColor: "#000000",
@@ -1600,17 +1949,15 @@ const styles = StyleSheet.create({
 
     elevation: 14,
 
-    zIndex: 100,
+    zIndex: 220,
   },
 
   menuPointer: {
     position: "absolute",
     right: 16,
     bottom: -6,
-
     width: 13,
     height: 13,
-
     backgroundColor: "#FFFFFF",
 
     transform: [
@@ -1624,14 +1971,10 @@ const styles = StyleSheet.create({
 
   menuItem: {
     height: 43,
-
     paddingHorizontal: 14,
-
     flexDirection: "row",
     alignItems: "center",
-
     borderRadius: 11,
-
     marginHorizontal: 4,
   },
 
@@ -1641,20 +1984,15 @@ const styles = StyleSheet.create({
 
   menuIcon: {
     width: 27,
-
     alignItems: "center",
     justifyContent: "center",
-
     marginRight: 9,
   },
 
   menuText: {
     flex: 1,
-
     color: "#111111",
-
     fontSize: 14,
-
     fontWeight: "500",
   },
 
@@ -1664,99 +2002,72 @@ const styles = StyleSheet.create({
 
   menuDivider: {
     height: 1,
-
     backgroundColor: "#EEEEEE",
-
     marginVertical: 4,
     marginHorizontal: 10,
   },
 
   /*
-   * REPLY INPUT
+   * REPLY
    */
 
   replyInputOverlay: {
     ...StyleSheet.absoluteFillObject,
-
-    zIndex: 80,
-
+    zIndex: 300,
     justifyContent: "flex-end",
-
     paddingHorizontal: 14,
     paddingBottom: 28,
   },
 
   replyInputArea: {
     width: "100%",
-
     flexDirection: "row",
-
     alignItems: "flex-end",
-
     gap: 8,
   },
 
   replyCloseButton: {
     width: 46,
     height: 46,
-
     borderRadius: 23,
-
     backgroundColor: "rgba(0,0,0,0.55)",
-
     alignItems: "center",
     justifyContent: "center",
   },
 
   replyInputWrapper: {
     flex: 1,
-
     minHeight: 46,
     maxHeight: 120,
-
     borderRadius: 24,
-
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.55)",
-
     backgroundColor: "rgba(0,0,0,0.48)",
-
     flexDirection: "row",
-
     alignItems: "center",
-
     paddingLeft: 17,
     paddingRight: 6,
   },
 
   replyInput: {
     flex: 1,
-
     minHeight: 44,
     maxHeight: 108,
-
     color: "#FFFFFF",
-
     fontSize: 15,
     lineHeight: 20,
-
     paddingTop: 11,
     paddingBottom: 11,
-
     textAlignVertical: "center",
   },
 
   sendReplyButton: {
     width: 36,
     height: 36,
-
     borderRadius: 18,
-
     backgroundColor: "#111111",
-
     alignItems: "center",
     justifyContent: "center",
-
     marginLeft: 6,
   },
 
@@ -1765,62 +2076,45 @@ const styles = StyleSheet.create({
   },
 
   /*
-   * BOTTOM ACTIONS
+   * BOTTOM
    */
 
   bottomArea: {
     position: "absolute",
-
     left: 14,
     right: 14,
     bottom: 30,
-
     flexDirection: "row",
-
     alignItems: "center",
-
     gap: 9,
-
-    zIndex: 30,
+    zIndex: 150,
+    elevation: 150,
   },
 
   replyButton: {
     flex: 1,
-
     height: 46,
-
     borderRadius: 23,
-
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.55)",
-
     backgroundColor: "rgba(0,0,0,0.28)",
-
     paddingHorizontal: 17,
-
     flexDirection: "row",
-
     alignItems: "center",
-
     gap: 8,
   },
 
   replyText: {
     color: "#FFFFFF",
-
     fontSize: 14,
-
     fontWeight: "600",
   },
 
   actionButton: {
     width: 46,
     height: 46,
-
     borderRadius: 23,
-
     backgroundColor: "rgba(0,0,0,0.35)",
-
     alignItems: "center",
     justifyContent: "center",
   },

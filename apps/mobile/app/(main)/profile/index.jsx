@@ -1,124 +1,34 @@
-/* eslint-disable react/no-unescaped-entities */
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
+  Modal,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { createURL } from "expo-linking";
+import QRCode from "react-native-qrcode-svg";
+
+import {
+  currentUser,
+  profile as sharedProfile,
+  profilePosts as DUMMY_POSTS,
+  reels as DUMMY_REELS,
+} from "../../../features/posts/dummyData";
 
 const DUMMY_PROFILE = {
-  id: "profile-1",
-  name: "Herbert Ngoe",
-  username: "herbert",
-  bio: "Building ideas, sharing moments, and connecting with amazing people. 🚀",
-  avatar: "https://i.pravatar.cc/300?img=12",
-  cover: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200",
-  location: "Buea, Cameroon",
-  website: "gists.app",
-  verified: true,
-  followers: 12800,
-  following: 642,
-  posts: 184,
-  likes: 48200,
-  isFollowing: false,
+  ...sharedProfile,
+  id: currentUser.id,
+  name: currentUser.name,
+  username: currentUser.username,
+  avatar: currentUser.avatar,
 };
-
-const DUMMY_POSTS = [
-  {
-    id: "profile-post-1",
-    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800",
-    likes: 2840,
-    comments: 184,
-  },
-  {
-    id: "profile-post-2",
-    image: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=800",
-    likes: 1920,
-    comments: 97,
-  },
-  {
-    id: "profile-post-3",
-    image: "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=800",
-    likes: 3410,
-    comments: 221,
-  },
-  {
-    id: "profile-post-4",
-    image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800",
-    likes: 4170,
-    comments: 304,
-  },
-  {
-    id: "profile-post-5",
-    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",
-    likes: 2560,
-    comments: 118,
-  },
-  {
-    id: "profile-post-6",
-    image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800",
-    likes: 3890,
-    comments: 276,
-  },
-  {
-    id: "profile-post-7",
-    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800",
-    likes: 1740,
-    comments: 84,
-  },
-  {
-    id: "profile-post-8",
-    image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800",
-    likes: 2210,
-    comments: 143,
-  },
-  {
-    id: "profile-post-9",
-    image: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800",
-    likes: 3180,
-    comments: 194,
-  },
-];
-
-const DUMMY_REELS = [
-  {
-    id: "reel-1",
-    image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=700",
-    views: 18200,
-  },
-  {
-    id: "reel-2",
-    image: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=700",
-    views: 12400,
-  },
-  {
-    id: "reel-3",
-    image: "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=700",
-    views: 9800,
-  },
-  {
-    id: "reel-4",
-    image: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=700",
-    views: 22100,
-  },
-  {
-    id: "reel-5",
-    image: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=700",
-    views: 7600,
-  },
-  {
-    id: "reel-6",
-    image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=700",
-    views: 14300,
-  },
-];
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -127,6 +37,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState(DUMMY_PROFILE);
   const [activeTab, setActiveTab] = useState("posts");
   const [refreshing, setRefreshing] = useState(false);
+  const [qrVisible, setQrVisible] = useState(false);
 
   const isOwnProfile =
     !params?.userId || String(params.userId) === String(DUMMY_PROFILE.id);
@@ -169,9 +80,9 @@ export default function ProfileScreen() {
     console.log("Message user:", profile.id);
   }, [profile.id]);
 
-  const handleMore = useCallback(() => {
-    console.log("Profile menu:", profile.id);
-  }, [profile.id]);
+  const handleSettings = useCallback(() => {
+    router.push("/(main)/profile/settings");
+  }, [router]);
 
   const handlePostPress = useCallback(
     (post) => {
@@ -198,7 +109,7 @@ export default function ProfileScreen() {
       return (
         <View style={styles.emptyContent}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="images-outline" size={28} color="#777777" />
+            <Ionicons name="images-outline" size={30} color="#555555" />
           </View>
 
           <Text style={styles.emptyTitle}>No posts yet</Text>
@@ -255,7 +166,7 @@ export default function ProfileScreen() {
       return (
         <View style={styles.emptyContent}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="play-circle-outline" size={28} color="#777777" />
+            <Ionicons name="play-circle-outline" size={30} color="#555555" />
           </View>
 
           <Text style={styles.emptyTitle}>No Reels yet</Text>
@@ -298,40 +209,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.replace("/(main)/feeds")}
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed && styles.headerButtonPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="arrow-back" size={23} color="#111111" />
-        </Pressable>
-
-        <Text numberOfLines={1} style={styles.headerUsername}>
-          @{displayProfile.username}
-        </Text>
-
-        <Pressable
-          onPress={handleMore}
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed && styles.headerButtonPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="More options"
-        >
-          <Ionicons name="ellipsis-horizontal" size={23} color="#111111" />
-        </Pressable>
-      </View>
-
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -343,70 +221,66 @@ export default function ProfileScreen() {
         }
         contentContainerStyle={styles.content}
       >
-        {/* Cover */}
-        <View style={styles.coverContainer}>
+        {/* =====================================================
+            COVER + HEADER
+        ====================================================== */}
+
+        <View style={styles.heroContainer}>
+          {/* Cover Image */}
           <Image
             source={{ uri: displayProfile.cover }}
             resizeMode="cover"
             style={styles.coverImage}
           />
 
+          {/* Subtle dark overlay */}
           <View style={styles.coverFade} />
+
+          {/* Header */}
+          <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
+            <View style={styles.header}>
+              {/* Back */}
+              <Pressable
+                onPress={() => router.replace("/(main)/feeds")}
+                hitSlop={10}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  pressed && styles.headerButtonPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Ionicons name="chevron-back" size={23} color="#FFFFFF" />
+              </Pressable>
+
+              {/* Settings */}
+              <Pressable
+                onPress={handleSettings}
+                hitSlop={10}
+                style={({ pressed }) => [
+                  styles.headerButton,
+                  pressed && styles.headerButtonPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Settings"
+              >
+                <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </SafeAreaView>
         </View>
 
-        {/* Profile Info */}
+        {/* =====================================================
+            PROFILE INFO
+        ====================================================== */}
+
         <View style={styles.profileSection}>
+          {/* Avatar */}
           <View style={styles.avatarRow}>
             <Image
               source={{ uri: displayProfile.avatar }}
               style={styles.avatar}
             />
-
-            {isOwnProfile ? (
-              <Pressable
-                onPress={handleEditProfile}
-                style={({ pressed }) => [
-                  styles.topActionButton,
-                  pressed && styles.topActionPressed,
-                ]}
-              >
-                <Text style={styles.topActionText}>Edit profile</Text>
-              </Pressable>
-            ) : (
-              <View style={styles.profileActions}>
-                <Pressable
-                  onPress={handleFollow}
-                  style={({ pressed }) => [
-                    styles.followButton,
-                    displayProfile.isFollowing && styles.followingButton,
-                    pressed && styles.followButtonPressed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.followButtonText,
-                      displayProfile.isFollowing && styles.followingButtonText,
-                    ]}
-                  >
-                    {displayProfile.isFollowing ? "Following" : "Follow"}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={handleMessage}
-                  style={({ pressed }) => [
-                    styles.messageButton,
-                    pressed && styles.messageButtonPressed,
-                  ]}
-                >
-                  <Ionicons
-                    name="chatbubble-outline"
-                    size={18}
-                    color="#111111"
-                  />
-                </Pressable>
-              </View>
-            )}
           </View>
 
           {/* Name */}
@@ -414,25 +288,25 @@ export default function ProfileScreen() {
             <Text style={styles.name}>{displayProfile.name}</Text>
 
             {displayProfile.verified ? (
-              <Ionicons
-                name="checkmark-circle"
-                size={18}
-                color="#111111"
-                style={styles.verified}
-              />
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+              </View>
             ) : null}
           </View>
 
+          {/* Username */}
           <Text style={styles.username}>@{displayProfile.username}</Text>
 
           {/* Bio */}
           <Text style={styles.bio}>{displayProfile.bio}</Text>
 
-          {/* Profile Metadata */}
+          {/* Metadata */}
           <View style={styles.metadata}>
             {displayProfile.location ? (
               <View style={styles.metadataItem}>
-                <Ionicons name="location-outline" size={15} color="#777777" />
+                <View style={styles.metadataIcon}>
+                  <Ionicons name="location-outline" size={13} color="#555555" />
+                </View>
 
                 <Text style={styles.metadataText}>
                   {displayProfile.location}
@@ -442,7 +316,9 @@ export default function ProfileScreen() {
 
             {displayProfile.website ? (
               <View style={styles.metadataItem}>
-                <Ionicons name="link-outline" size={15} color="#777777" />
+                <View style={styles.metadataIcon}>
+                  <Ionicons name="link-outline" size={13} color="#555555" />
+                </View>
 
                 <Text style={styles.metadataLink}>
                   {displayProfile.website}
@@ -477,7 +353,7 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Following</Text>
             </Pressable>
 
-            <View style={styles.stat}>
+            <View style={[styles.stat, styles.statLast]}>
               <Text style={styles.statNumber}>
                 {formatCount(displayProfile.likes)}
               </Text>
@@ -485,19 +361,80 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Likes</Text>
             </View>
           </View>
+
+          {/* Action Buttons */}
+          {isOwnProfile ? (
+            <View style={styles.profileActions}>
+              <Pressable
+                onPress={handleEditProfile}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.topActionButton,
+                  pressed && styles.topActionPressed,
+                ]}
+              >
+                <Text style={styles.topActionText}>Edit profile</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setQrVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Show profile QR code"
+                style={({ pressed }) => [
+                  styles.qrButton,
+                  pressed && styles.qrButtonPressed,
+                ]}
+              >
+                <Ionicons name="qr-code-outline" size={22} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.profileActions}>
+              <Pressable
+                onPress={handleFollow}
+                style={({ pressed }) => [
+                  styles.followButton,
+                  displayProfile.isFollowing && styles.followingButton,
+                  pressed && styles.followButtonPressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.followButtonText,
+                    displayProfile.isFollowing && styles.followingButtonText,
+                  ]}
+                >
+                  {displayProfile.isFollowing ? "Following" : "Follow"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={handleMessage}
+                style={({ pressed }) => [
+                  styles.messageButton,
+                  pressed && styles.messageButtonPressed,
+                ]}
+              >
+                <Ionicons name="chatbubble-outline" size={18} color="#111111" />
+              </Pressable>
+            </View>
+          )}
         </View>
 
-        {/* Content Tabs */}
+        {/* =====================================================
+            CONTENT TABS
+        ====================================================== */}
+
         <View style={styles.tabs}>
-          <Pressable
-            onPress={() => setActiveTab("posts")}
-            style={[styles.tab, activeTab === "posts" && styles.activeTab]}
-          >
-            <Ionicons
-              name={activeTab === "posts" ? "grid" : "grid-outline"}
-              size={21}
-              color={activeTab === "posts" ? "#111111" : "#999999"}
-            />
+          {/* Posts */}
+          <Pressable onPress={() => setActiveTab("posts")} style={styles.tab}>
+            <View style={styles.tabIcon}>
+              <Ionicons
+                name={activeTab === "posts" ? "grid" : "grid-outline"}
+                size={20}
+                color={activeTab === "posts" ? "#111111" : "#999999"}
+              />
+            </View>
 
             <Text
               style={[
@@ -507,19 +444,21 @@ export default function ProfileScreen() {
             >
               Posts
             </Text>
+
+            {activeTab === "posts" ? (
+              <View style={styles.activeUnderline} />
+            ) : null}
           </Pressable>
 
-          <Pressable
-            onPress={() => setActiveTab("reels")}
-            style={[styles.tab, activeTab === "reels" && styles.activeTab]}
-          >
-            <Ionicons
-              name={
-                activeTab === "reels" ? "play-circle" : "play-circle-outline"
-              }
-              size={21}
-              color={activeTab === "reels" ? "#111111" : "#999999"}
-            />
+          {/* Reels */}
+          <Pressable onPress={() => setActiveTab("reels")} style={styles.tab}>
+            <View style={styles.tabIcon}>
+              <Ionicons
+                name={activeTab === "reels" ? "play" : "play-outline"}
+                size={20}
+                color={activeTab === "reels" ? "#111111" : "#999999"}
+              />
+            </View>
 
             <Text
               style={[
@@ -529,17 +468,21 @@ export default function ProfileScreen() {
             >
               Reels
             </Text>
+
+            {activeTab === "reels" ? (
+              <View style={styles.activeUnderline} />
+            ) : null}
           </Pressable>
 
-          <Pressable
-            onPress={() => setActiveTab("saved")}
-            style={[styles.tab, activeTab === "saved" && styles.activeTab]}
-          >
-            <Ionicons
-              name={activeTab === "saved" ? "bookmark" : "bookmark-outline"}
-              size={21}
-              color={activeTab === "saved" ? "#111111" : "#999999"}
-            />
+          {/* Saved */}
+          <Pressable onPress={() => setActiveTab("saved")} style={styles.tab}>
+            <View style={styles.tabIcon}>
+              <Ionicons
+                name={activeTab === "saved" ? "bookmark" : "bookmark-outline"}
+                size={20}
+                color={activeTab === "saved" ? "#111111" : "#999999"}
+              />
+            </View>
 
             <Text
               style={[
@@ -549,17 +492,25 @@ export default function ProfileScreen() {
             >
               Saved
             </Text>
+
+            {activeTab === "saved" ? (
+              <View style={styles.activeUnderline} />
+            ) : null}
           </Pressable>
         </View>
 
-        {/* Tab Content */}
+        {/* =====================================================
+            TAB CONTENT
+        ====================================================== */}
+
         {activeTab === "posts" && renderPosts()}
+
         {activeTab === "reels" && renderReels()}
 
         {activeTab === "saved" ? (
           <View style={styles.emptyContent}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="bookmark-outline" size={28} color="#777777" />
+              <Ionicons name="bookmark-outline" size={30} color="#555555" />
             </View>
 
             <Text style={styles.emptyTitle}>Saved Gists</Text>
@@ -570,7 +521,48 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpace} />
       </ScrollView>
-    </SafeAreaView>
+
+      {/* =======================================================
+          QR MODAL
+      ======================================================== */}
+
+      <Modal
+        visible={qrVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrVisible(false)}
+      >
+        <View style={styles.qrBackdrop}>
+          <View style={styles.qrCard} accessibilityViewIsModal>
+            <Text style={styles.emptyTitle}>Your profile QR code</Text>
+
+            <Text style={styles.username}>@{displayProfile.username}</Text>
+
+            <View style={styles.qrCode}>
+              <QRCode
+                value={createURL(
+                  `/feeds/profile/${encodeURIComponent(displayProfile.id)}`,
+                )}
+                size={200}
+                quietZone={12}
+              />
+            </View>
+
+            <Text style={styles.emptyText}>
+              Scan to open your profile in Gists.
+            </Text>
+
+            <Pressable
+              onPress={() => setQrVisible(false)}
+              accessibilityRole="button"
+              style={styles.topActionButton}
+            >
+              <Text style={styles.topActionText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -602,70 +594,102 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 
-  header: {
-    height: 62,
-    paddingHorizontal: 16,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F2",
-  },
-
-  headerButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  headerButtonPressed: {
-    backgroundColor: "#F4F4F4",
-    transform: [{ scale: 0.94 }],
-  },
-
-  headerUsername: {
-    flex: 1,
-    marginHorizontal: 15,
-    color: "#111111",
-    fontSize: 17,
-    fontWeight: "800",
-    textAlign: "center",
-  },
-
   content: {
     paddingBottom: 30,
   },
 
-  coverContainer: {
+  /*
+   * ==========================================================
+   * HERO / COVER
+   * ==========================================================
+   */
+
+  heroContainer: {
     width: "100%",
-    height: 175,
+    height: 250,
     backgroundColor: "#EAEAEA",
     overflow: "hidden",
+    position: "relative",
   },
 
   coverImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     width: "100%",
     height: "100%",
   },
 
   coverFade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.06)",
+    backgroundColor: "rgba(0, 0, 0, 0.10)",
   },
+
+  /*
+   * ==========================================================
+   * HEADER
+   * ==========================================================
+   *
+   * The header is inside the ScrollView, so it is NOT fixed.
+   */
+
+  headerSafeArea: {
+    backgroundColor: "transparent",
+  },
+
+  header: {
+    height: 62,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.18)",
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  headerButtonPressed: {
+    transform: [{ scale: 0.94 }],
+    opacity: 0.8,
+  },
+
+  /*
+   * ==========================================================
+   * PROFILE
+   * ==========================================================
+   */
 
   profileSection: {
     paddingHorizontal: 18,
     paddingBottom: 20,
+    backgroundColor: "#FFFFFF",
   },
 
   avatarRow: {
-    minHeight: 74,
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
+    marginBottom: 6,
   },
 
   avatar: {
@@ -678,39 +702,55 @@ const styles = StyleSheet.create({
     backgroundColor: "#EAEAEA",
   },
 
+  profileActions: {
+    marginTop: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
   topActionButton: {
-    minWidth: 110,
-    height: 36,
+    flex: 1,
+    height: 42,
     paddingHorizontal: 16,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#D9D9D9",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#FFFFFF",
   },
 
   topActionPressed: {
     backgroundColor: "#F5F5F5",
-    transform: [{ scale: 0.97 }],
+    transform: [{ scale: 0.98 }],
   },
 
   topActionText: {
     color: "#111111",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
 
-  profileActions: {
-    flexDirection: "row",
+  qrButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#111111",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+  },
+
+  qrButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
 
   followButton: {
-    minWidth: 92,
-    height: 36,
+    flex: 1,
+    height: 42,
     paddingHorizontal: 17,
-    borderRadius: 18,
+    borderRadius: 12,
     backgroundColor: "#111111",
     alignItems: "center",
     justifyContent: "center",
@@ -724,12 +764,12 @@ const styles = StyleSheet.create({
 
   followButtonPressed: {
     opacity: 0.75,
-    transform: [{ scale: 0.97 }],
+    transform: [{ scale: 0.98 }],
   },
 
   followButtonText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
 
@@ -738,9 +778,9 @@ const styles = StyleSheet.create({
   },
 
   messageButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: "#F2F2F2",
     alignItems: "center",
     justifyContent: "center",
@@ -748,13 +788,14 @@ const styles = StyleSheet.create({
 
   messageButtonPressed: {
     backgroundColor: "#E8E8E8",
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.96 }],
   },
 
   nameRow: {
     marginTop: 2,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
   },
 
   name: {
@@ -765,11 +806,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
-  verified: {
-    marginLeft: 5,
+  verifiedBadge: {
+    width: 18,
+    height: 18,
+    marginLeft: 6,
+    borderRadius: 9,
+    backgroundColor: "#111111",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   username: {
+    textAlign: "center",
     marginTop: 2,
     color: "#777777",
     fontSize: 13,
@@ -777,6 +825,7 @@ const styles = StyleSheet.create({
   },
 
   bio: {
+    textAlign: "center",
     marginTop: 12,
     color: "#333333",
     fontSize: 13.5,
@@ -784,16 +833,32 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  /*
+   * ==========================================================
+   * METADATA
+   * ==========================================================
+   */
+
   metadata: {
     marginTop: 11,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 14,
+    justifyContent: "center",
+    gap: 12,
   },
 
   metadataItem: {
     flexDirection: "row",
     alignItems: "center",
+  },
+
+  metadataIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F2F2F2",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   metadataText: {
@@ -809,37 +874,53 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  /*
+   * ==========================================================
+   * STATS
+   * ==========================================================
+   */
+
   stats: {
     marginTop: 20,
     paddingVertical: 14,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#EEEEEE",
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "stretch",
   },
 
   stat: {
-    flex: 1,
+    width: "25%",
     alignItems: "center",
+    justifyContent: "center",
+    borderRightWidth: 1,
+    borderRightColor: "#4949496d",
+  },
+
+  statLast: {
+    borderRightWidth: 0,
   },
 
   statNumber: {
+    fontSize: 17,
+    fontWeight: "800",
     color: "#111111",
-    fontSize: 15,
-    fontWeight: "900",
   },
 
   statLabel: {
-    marginTop: 3,
-    color: "#888888",
-    fontSize: 10.5,
+    marginTop: 4,
+    fontSize: 12,
     fontWeight: "500",
+    color: "#777777",
   },
+
+  /*
+   * ==========================================================
+   * TABS
+   * ==========================================================
+   */
 
   tabs: {
     height: 58,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
     flexDirection: "row",
@@ -851,17 +932,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    paddingBottom: 4,
     gap: 3,
   },
 
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#111111",
+  tabIcon: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   tabText: {
     color: "#999999",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "600",
   },
 
@@ -870,8 +952,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  activeUnderline: {
+    position: "absolute",
+    bottom: 0,
+    alignSelf: "center",
+    width: 48,
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: "#111111",
+  },
+
+  /*
+   * ==========================================================
+   * GRID
+   * ==========================================================
+   */
+
   grid: {
     padding: 2,
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     flexWrap: "wrap",
   },
@@ -921,6 +1020,12 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
+  /*
+   * ==========================================================
+   * REELS
+   * ==========================================================
+   */
+
   reelBadge: {
     position: "absolute",
     right: 9,
@@ -940,18 +1045,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  /*
+   * ==========================================================
+   * EMPTY STATE
+   * ==========================================================
+   */
+
   emptyContent: {
     minHeight: 280,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 30,
   },
 
   emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#F3F3F3",
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "#F2F2F2",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -974,5 +1086,34 @@ const styles = StyleSheet.create({
 
   bottomSpace: {
     height: 80,
+  },
+
+  /*
+   * ==========================================================
+   * QR MODAL
+   * ==========================================================
+   */
+
+  qrBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+
+  qrCard: {
+    width: "100%",
+    maxWidth: 340,
+    padding: 20,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  qrCode: {
+    paddingVertical: 8,
+    backgroundColor: "#FFFFFF",
   },
 });

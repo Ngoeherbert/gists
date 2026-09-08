@@ -118,7 +118,9 @@ export default function CommentsScreen() {
 
   const post = useMemo(
     () =>
-      dummyPosts.find((item) => String(item?.id) === selectedPostId) || null,
+      dummyPosts.find(
+        (item) => String(item?.id) === selectedPostId,
+      ) || null,
     [selectedPostId],
   );
 
@@ -139,19 +141,21 @@ export default function CommentsScreen() {
 
   const [replies, setReplies] = useState(dummyReplies);
 
-  // Only used when loading more comments from the list.
+  // Pagination loading state.
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Only used when loading more replies.
+  // Reply pagination loading state.
   const [replyLoading, setReplyLoading] = useState(false);
 
-  /*
-   * Loading state ONLY for submitting a comment/reply.
-   * The 'loading' state above is pagination loading for
-   * the comments list and must not disable the send
-   * button or block submissions.
-   */
+  // Comment/reply submission loading state.
   const [submitting, setSubmitting] = useState(false);
+
+  // There are currently no more dummy comments to load.
+  // Change this to true when real pagination is connected.
+  const [hasMoreComments] = useState(false);
+
+  // There are currently no more dummy replies to load.
+  const [hasMoreReplies] = useState(false);
 
   const [menuComment, setMenuComment] = useState(null);
 
@@ -164,12 +168,54 @@ export default function CommentsScreen() {
 
     setSubmitting(true);
 
-    if (replyingTo) {
-      const newReply = {
-        id: `reply-${Date.now()}`,
+    try {
+      if (replyingTo) {
+        const newReply = {
+          id: `reply-${Date.now()}`,
+          text: trimmed,
+          liked: false,
+          likeCount: 0,
+          user: {
+            id: currentUser?.id,
+            name: currentUser?.name,
+            username: currentUser?.username,
+            avatar: currentUser?.avatar,
+          },
+        };
+
+        setReplies((current) => ({
+          ...current,
+          [replyingTo.id]: [
+            ...(current[replyingTo.id] || []),
+            newReply,
+          ],
+        }));
+
+        setComments((current) =>
+          current.map((comment) =>
+            comment.id === replyingTo.id
+              ? {
+                  ...comment,
+                  repliesCount:
+                    (comment.repliesCount || 0) + 1,
+                }
+              : comment,
+          ),
+        );
+
+        setReplyingTo(null);
+        setCommentText("");
+
+        return;
+      }
+
+      const newComment = {
+        id: `comment-${Date.now()}`,
+        postId: selectedPostId,
         text: trimmed,
         liked: false,
         likeCount: 0,
+        repliesCount: 0,
         user: {
           id: currentUser?.id,
           name: currentUser?.name,
@@ -178,48 +224,20 @@ export default function CommentsScreen() {
         },
       };
 
-      setReplies((current) => ({
+      setComments((current) => [
+        newComment,
         ...current,
-        [replyingTo.id]: [...(current[replyingTo.id] || []), newReply],
-      }));
+      ]);
 
-      setComments((current) =>
-        current.map((comment) =>
-          comment.id === replyingTo.id
-            ? {
-                ...comment,
-                repliesCount: (comment.repliesCount || 0) + 1,
-              }
-            : comment,
-        ),
-      );
-
-      setReplyingTo(null);
       setCommentText("");
+    } catch (error) {
+      console.error(
+        "Failed to submit comment:",
+        error,
+      );
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    const newComment = {
-      id: `comment-${Date.now()}`,
-      postId: selectedPostId,
-      text: trimmed,
-      liked: false,
-      likeCount: 0,
-      repliesCount: 0,
-      user: {
-        id: currentUser?.id,
-        name: currentUser?.name,
-        username: currentUser?.username,
-        avatar: currentUser?.avatar,
-      },
-    };
-
-    setComments((current) => [newComment, ...current]);
-
-    setCommentText("");
-
-    setSubmitting(false);
   };
 
   const handleLikeComment = (comment, liked) => {
@@ -229,7 +247,11 @@ export default function CommentsScreen() {
           ? {
               ...item,
               liked,
-              likeCount: Math.max(0, (item.likeCount || 0) + (liked ? 1 : -1)),
+              likeCount: Math.max(
+                0,
+                (item.likeCount || 0) +
+                  (liked ? 1 : -1),
+              ),
             }
           : item,
       ),
@@ -256,14 +278,19 @@ export default function CommentsScreen() {
     }
 
     setComments((current) =>
-      current.filter((item) => item.id !== menuComment.id),
+      current.filter(
+        (item) => item.id !== menuComment.id,
+      ),
     );
 
     setMenuComment(null);
   };
 
   const handleLoadMore = () => {
-    if (loadingMore) {
+    // No pagination available yet.
+    // This prevents FlatList from repeatedly
+    // putting the screen into a loading state.
+    if (!hasMoreComments || loadingMore) {
       return;
     }
 
@@ -275,7 +302,7 @@ export default function CommentsScreen() {
   };
 
   const handleLoadMoreReplies = () => {
-    if (replyLoading) {
+    if (!hasMoreReplies || replyLoading) {
       return;
     }
 
@@ -302,9 +329,15 @@ export default function CommentsScreen() {
       return null;
     }
 
-    const username = post.username || post.user?.username || post.userName;
+    const username =
+      post.username ||
+      post.user?.username ||
+      post.userName;
 
-    const text = post.caption || post.content || post.text;
+    const text =
+      post.caption ||
+      post.content ||
+      post.text;
 
     return (
       <View style={styles.postSummary}>
@@ -313,22 +346,30 @@ export default function CommentsScreen() {
         </Text>
 
         {text ? (
-          <Text style={styles.postSummaryText} numberOfLines={3}>
+          <Text
+            style={styles.postSummaryText}
+            numberOfLines={3}
+          >
             {text}
           </Text>
         ) : null}
 
         <View style={styles.commentsHeader}>
-          <Text style={styles.commentsTitle}>Comments</Text>
+          <Text style={styles.commentsTitle}>
+            Comments
+          </Text>
 
-          <Text style={styles.commentsCount}>{comments.length}</Text>
+          <Text style={styles.commentsCount}>
+            {comments.length}
+          </Text>
         </View>
       </View>
     );
   };
 
   if (selectedReplies) {
-    const commentReplies = replies[selectedReplies.id] || [];
+    const commentReplies =
+      replies[selectedReplies.id] || [];
 
     return (
       <SafeAreaView style={styles.container}>
@@ -338,10 +379,16 @@ export default function CommentsScreen() {
             style={styles.iconButton}
             hitSlop={10}
           >
-            <Ionicons name="arrow-back" size={24} color="#111111" />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color="#111111"
+            />
           </Pressable>
 
-          <Text style={styles.topBarTitle}>Replies</Text>
+          <Text style={styles.topBarTitle}>
+            Replies
+          </Text>
 
           <View style={styles.iconSpacer} />
         </View>
@@ -353,8 +400,13 @@ export default function CommentsScreen() {
               "Comment"}
           </Text>
 
-          <Text style={styles.replyTargetText} numberOfLines={2}>
-            {selectedReplies?.text || selectedReplies?.content || ""}
+          <Text
+            style={styles.replyTargetText}
+            numberOfLines={2}
+          >
+            {selectedReplies?.text ||
+              selectedReplies?.content ||
+              ""}
           </Text>
         </View>
 
@@ -366,25 +418,27 @@ export default function CommentsScreen() {
             onLike={(reply, liked) => {
               setReplies((current) => ({
                 ...current,
-                [selectedReplies.id]: (current[selectedReplies.id] || []).map(
-                  (item) =>
-                    item.id === reply.id
-                      ? {
-                          ...item,
-                          liked,
-                          likeCount: Math.max(
-                            0,
-                            (item.likeCount || 0) + (liked ? 1 : -1),
-                          ),
-                        }
-                      : item,
+                [selectedReplies.id]: (
+                  current[selectedReplies.id] || []
+                ).map((item) =>
+                  item.id === reply.id
+                    ? {
+                        ...item,
+                        liked,
+                        likeCount: Math.max(
+                          0,
+                          (item.likeCount || 0) +
+                            (liked ? 1 : -1),
+                        ),
+                      }
+                    : item,
                 ),
               }));
             }}
             onReply={handleReply}
             onMore={handleMore}
             onLoadMore={handleLoadMoreReplies}
-            hasMore={false}
+            hasMore={hasMoreReplies}
           />
         </View>
 
@@ -395,7 +449,6 @@ export default function CommentsScreen() {
           user={currentUser}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
-          // Do NOT connect reply input to loadingMore.
           loading={submitting}
           placeholder="Write a reply..."
         />
@@ -407,20 +460,36 @@ export default function CommentsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={24} color="#111111" />
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.iconButton}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color="#111111"
+            />
           </Pressable>
 
-          <Text style={styles.topBarTitle}>Comments</Text>
+          <Text style={styles.topBarTitle}>
+            Comments
+          </Text>
 
           <View style={styles.iconSpacer} />
         </View>
 
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Post not found</Text>
+          <Text style={styles.emptyTitle}>
+            Post not found
+          </Text>
 
-          <Pressable onPress={() => router.back()} style={styles.emptyButton}>
-            <Text style={styles.emptyButtonText}>Go back</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.emptyButton}
+          >
+            <Text style={styles.emptyButtonText}>
+              Go back
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -435,10 +504,16 @@ export default function CommentsScreen() {
           style={styles.iconButton}
           hitSlop={10}
         >
-          <Ionicons name="arrow-back" size={24} color="#111111" />
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color="#111111"
+          />
         </Pressable>
 
-        <Text style={styles.topBarTitle}>Comments</Text>
+        <Text style={styles.topBarTitle}>
+          Comments
+        </Text>
 
         <View style={styles.iconSpacer} />
       </View>
@@ -446,13 +521,23 @@ export default function CommentsScreen() {
       <FlatList
         data={comments}
         renderItem={renderComment}
-        keyExtractor={(item, index) => String(item?.id || `comment-${index}`)}
+        keyExtractor={(item, index) =>
+          String(
+            item?.id || `comment-${index}`,
+          )
+        }
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={
           <View style={styles.emptyComments}>
-            <Ionicons name="chatbubble-outline" size={36} color="#AAAAAA" />
+            <Ionicons
+              name="chatbubble-outline"
+              size={36}
+              color="#AAAAAA"
+            />
 
-            <Text style={styles.emptyCommentsTitle}>No comments yet</Text>
+            <Text style={styles.emptyCommentsTitle}>
+              No comments yet
+            </Text>
 
             <Text style={styles.emptyCommentsText}>
               Be the first to share your thoughts.
@@ -462,17 +547,26 @@ export default function CommentsScreen() {
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.loadingFooter}>
-              <ActivityIndicator size="small" color="#111111" />
+              <ActivityIndicator
+                size="small"
+                color="#111111"
+              />
             </View>
           ) : null
         }
-        onEndReached={handleLoadMore}
+        onEndReached={
+          hasMoreComments
+            ? handleLoadMore
+            : undefined
+        }
         onEndReachedThreshold={0.6}
         refreshing={false}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={
-          comments.length === 0 ? styles.emptyList : styles.list
+          comments.length === 0
+            ? styles.emptyList
+            : styles.list
         }
       />
 
@@ -483,11 +577,12 @@ export default function CommentsScreen() {
         user={currentUser}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
-        // IMPORTANT:
-        // loadingMore is only for FlatList pagination.
-        // It must never control the comment button.
         loading={submitting}
-        placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
+        placeholder={
+          replyingTo
+            ? "Write a reply..."
+            : "Add a comment..."
+        }
       />
 
       {menuComment && (
@@ -511,10 +606,13 @@ export default function CommentsScreen() {
                 color="#111111"
               />
 
-              <Text style={styles.menuItemText}>Reply</Text>
+              <Text style={styles.menuItemText}>
+                Reply
+              </Text>
             </Pressable>
 
-            {String(menuComment?.user?.id) === String(currentUser?.id) && (
+            {String(menuComment?.user?.id) ===
+              String(currentUser?.id) && (
               <Pressable
                 onPress={() => {
                   Alert.alert(
@@ -528,22 +626,33 @@ export default function CommentsScreen() {
                       {
                         text: "Delete",
                         style: "destructive",
-                        onPress: handleDeleteComment,
+                        onPress:
+                          handleDeleteComment,
                       },
                     ],
                   );
                 }}
                 style={styles.menuItem}
               >
-                <Ionicons name="trash-outline" size={20} color="#D64545" />
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color="#D64545"
+                />
 
-                <Text style={[styles.menuItemText, styles.dangerText]}>
+                <Text
+                  style={[
+                    styles.menuItemText,
+                    styles.dangerText,
+                  ]}
+                >
                   Delete
                 </Text>
               </Pressable>
             )}
 
-            {String(menuComment?.user?.id) !== String(currentUser?.id) && (
+            {String(menuComment?.user?.id) !==
+              String(currentUser?.id) && (
               <Pressable
                 onPress={() => {
                   setMenuComment(null);
@@ -555,17 +664,28 @@ export default function CommentsScreen() {
                 }}
                 style={styles.menuItem}
               >
-                <Ionicons name="flag-outline" size={20} color="#111111" />
+                <Ionicons
+                  name="flag-outline"
+                  size={20}
+                  color="#111111"
+                />
 
-                <Text style={styles.menuItemText}>Report</Text>
+                <Text style={styles.menuItemText}>
+                  Report
+                </Text>
               </Pressable>
             )}
 
             <Pressable
               onPress={() => setMenuComment(null)}
-              style={[styles.menuItem, styles.cancelMenuItem]}
+              style={[
+                styles.menuItem,
+                styles.cancelMenuItem,
+              ]}
             >
-              <Text style={styles.cancelMenuText}>Cancel</Text>
+              <Text style={styles.cancelMenuText}>
+                Cancel
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -583,7 +703,8 @@ const styles = StyleSheet.create({
   topBar: {
     height: 58,
     paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
     borderBottomColor: "#E5E5E5",
     flexDirection: "row",
     alignItems: "center",
@@ -685,7 +806,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     backgroundColor: "#F7F7F7",
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
     borderBottomColor: "#E5E5E5",
   },
 
@@ -766,7 +888,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth:
+      StyleSheet.hairlineWidth,
     borderBottomColor: "#EEEEEE",
   },
 

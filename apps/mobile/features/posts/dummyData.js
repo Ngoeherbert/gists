@@ -1,8 +1,9 @@
 const currentUser = {
   id: "user-001",
-  name: "Herbert",
-  username: "herbert",
+  name: "Ngoe Herbert",
+  username: "herbert237",
   avatar: "https://i.pravatar.cc/150?img=12",
+  verified: true,
 };
 
 const stories = [
@@ -12,6 +13,7 @@ const stories = [
     name: "Sarah",
     username: "sarah",
     avatar: "https://i.pravatar.cc/150?img=47",
+    uri: "https://images.unsplash.com/photo-1500534623283-312aade485b7?w=1200",
     viewed: false,
   },
   {
@@ -20,6 +22,7 @@ const stories = [
     name: "Michael",
     username: "michael",
     avatar: "https://i.pravatar.cc/150?img=11",
+    uri: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200",
     viewed: false,
   },
   {
@@ -28,6 +31,7 @@ const stories = [
     name: "Jessica",
     username: "jessica",
     avatar: "https://i.pravatar.cc/150?img=32",
+    uri: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200",
     viewed: true,
   },
   {
@@ -36,6 +40,7 @@ const stories = [
     name: "Daniel",
     username: "daniel",
     avatar: "https://i.pravatar.cc/150?img=68",
+    uri: "https://images.unsplash.com/photo-1484417894907-623942c8ee29?w=1200",
     viewed: false,
   },
   {
@@ -44,6 +49,7 @@ const stories = [
     name: "Emma",
     username: "emma",
     avatar: "https://i.pravatar.cc/150?img=44",
+    uri: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1200",
     viewed: true,
   },
 ];
@@ -58,6 +64,7 @@ const posts = [
       name: "Sarah Williams",
       username: "sarahw",
       avatar: "https://i.pravatar.cc/150?img=47",
+      verified: true,
     },
 
     timestamp: "12 min ago",
@@ -129,6 +136,7 @@ const posts = [
       name: "Jessica Brown",
       username: "jessicab",
       avatar: "https://i.pravatar.cc/150?img=32",
+      verified: true,
     },
 
     timestamp: "1 hr ago",
@@ -236,6 +244,7 @@ const posts = [
       name: "Chris Morgan",
       username: "chrism",
       avatar: "https://i.pravatar.cc/150?img=13",
+      verified: true,
     },
 
     timestamp: "5 hrs ago",
@@ -299,10 +308,72 @@ const posts = [
   },
 ];
 
-export { currentUser, stories, posts };
+const profile = {
+  id: currentUser.id,
+  name: currentUser.name,
+  username: currentUser.username,
+  bio: "Building ideas, sharing moments, and connecting with amazing people. 🚀",
+  avatar: currentUser.avatar,
+  cover: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=1200",
+  location: "Buea, Cameroon",
+  website: "gists.app",
+  verified: true,
+  followers: 12800,
+  following: 642,
+  posts: posts.length,
+  likes: posts.reduce((total, post) => total + post.likeCount, 0),
+  isFollowing: false,
+};
+
+const profilePosts = posts
+  .filter((post) => post.mediaUrl)
+  .map((post) => ({
+    id: post.id,
+    image: post.mediaUrl,
+    likes: post.likeCount,
+    comments: post.commentCount,
+  }));
+
+const reels = [
+  {
+    id: "reel-1",
+    image: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=700",
+    views: 18200,
+  },
+  {
+    id: "reel-2",
+    image: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=700",
+    views: 12400,
+  },
+  {
+    id: "reel-3",
+    image: "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?w=700",
+    views: 9800,
+  },
+  {
+    id: "reel-4",
+    image: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=700",
+    views: 22100,
+  },
+  {
+    id: "reel-5",
+    image: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=700",
+    views: 7600,
+  },
+  {
+    id: "reel-6",
+    image: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=700",
+    views: 14300,
+  },
+];
+
+export { currentUser, stories, posts, reels, profile, profilePosts };
 
 export default {
   currentUser,
   stories,
   posts,
+  reels,
+  profile,
+  profilePosts,
 };

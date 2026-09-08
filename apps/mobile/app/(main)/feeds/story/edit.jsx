@@ -81,6 +81,9 @@ export default function StoryEditScreen() {
         backgroundColor,
         textColor: effectiveTextColor,
         textAlignment,
+        userId: "user-001",
+        username: "herbert237",
+        avatar: "https://i.pravatar.cc/150?img=12",
       },
     });
   };

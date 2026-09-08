@@ -24,11 +24,6 @@ const MODES = [
     icon: "camera-outline",
   },
   {
-    id: "video",
-    label: "Video",
-    icon: "videocam-outline",
-  },
-  {
     id: "text",
     label: "Text",
     icon: "text-outline",

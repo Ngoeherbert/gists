@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from "react-native";
 import { router } from "expo-router";
+import {useAuthStore} from "../../stores/authStore";
 
 const logo = require("../../assets/icons/logo_light.png");
 
@@ -20,7 +21,25 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
 
   const handleLogin = () => {
-    // Authentication will be connected to the server later.
+    /*
+     * Authentication will be connected to the server later.
+     *
+     * The auth store persists to AsyncStorage via
+     * the zustand persist middleware, so the user
+     * stays logged in across app restarts.
+     */
+    useAuthStore.getState().setSession({
+      user: {
+        id: "user-001",
+        userId: "user-001",
+        username: "herbert237",
+        name: "Ngoe Herbert",
+        email: identifier,
+      },
+      token: `mock-token-${Date.now()}`,
+      refreshToken: `mock-refresh-${Date.now()}`,
+    });
+
     router.replace("/(main)/feeds");
   };
 

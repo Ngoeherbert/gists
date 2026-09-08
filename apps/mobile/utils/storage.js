@@ -1,5 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export const STORAGE_KEYS = {
+  AUTH_SESSION: "@gists/auth/session",
+  AUTH_USER: "@gists/auth/user",
+  STORIES: "@gists/stories",
+};
+
 export async function setItem(key, value) {
   try {
     const serialized =
@@ -70,7 +76,6 @@ export async function multiSet(items) {
     ]);
 
     await AsyncStorage.multiSet(serialized);
-
     return true;
   } catch (error) {
     console.error("Storage multiSet error:", error);
@@ -96,4 +101,5 @@ export default {
   hasItem,
   multiSet,
   multiRemove,
+  STORAGE_KEYS,
 };

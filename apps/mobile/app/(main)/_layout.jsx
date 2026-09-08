@@ -12,7 +12,27 @@ function isStoryRoute(route) {
   }
 
   if (route.state?.routes) {
-    return route.state.routes.some((nestedRoute) => isStoryRoute(nestedRoute));
+    return route.state.routes.some((nestedRoute) =>
+      isStoryRoute(nestedRoute),
+    );
+  }
+
+  return false;
+}
+
+function isCommentsRoute(route) {
+  if (!route) {
+    return false;
+  }
+
+  if (route.name?.includes("comments")) {
+    return true;
+  }
+
+  if (route.state?.routes) {
+    return route.state.routes.some((nestedRoute) =>
+      isCommentsRoute(nestedRoute),
+    );
   }
 
   return false;
@@ -34,7 +54,13 @@ export default function MainLayout() {
           return null;
         }
 
-        const activeTab = activeRoute?.name?.split("/")[0] || "feeds";
+        // Hide BottomTabBar on the Comments screen.
+        if (isCommentsRoute(activeRoute)) {
+          return null;
+        }
+
+        const activeTab =
+          activeRoute?.name?.split("/")[0] || "feeds";
 
         const handleTabPress = (tabKey) => {
           const route = state.routes.find((item) => {

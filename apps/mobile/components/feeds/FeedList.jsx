@@ -65,11 +65,7 @@ export default function FeedList({
     ({ item }) => (
       <PostCard
         post={item}
-        onUserPress={(user) => {
-          if (typeof onUserPress === "function") {
-            onUserPress(item, user);
-          }
-        }}
+        onUserPress={onUserPress}
         onMenuPress={() => {
           if (typeof onPostMenu === "function") {
             onPostMenu(item);
@@ -137,7 +133,9 @@ export default function FeedList({
       onEndReachedThreshold={0.6}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={
-        posts.length === 0 ? styles.emptyContent : styles.content
+        posts.length === 0
+          ? styles.emptyContent
+          : styles.content
       }
       removeClippedSubviews
     />

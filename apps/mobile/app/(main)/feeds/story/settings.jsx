@@ -1,16 +1,47 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function StorySettingsScreen() {
+  const params = useLocalSearchParams();
+
+  const type = Array.isArray(params.type) ? params.type[0] : params.type;
+  const uri = Array.isArray(params.uri) ? params.uri[0] : params.uri;
+  const text = Array.isArray(params.text) ? params.text[0] : params.text;
+  const backgroundColor = Array.isArray(params.backgroundColor)
+    ? params.backgroundColor[0]
+    : params.backgroundColor;
+
   const handleBack = () => {
     router.replace("/(main)/feeds/story/edit");
   };
 
   const handleShare = () => {
-    router.replace("/(main)/feeds");
+    /*
+     * Pass the published story back to the feed.
+     * Expo Router merges these params into the
+     * route that replaces the current screen.
+     *
+     * FeedsScreen reads `publishedStory` and
+     * prepends it to its story list.
+     */
+    router.replace({
+      pathname: "/(main)/feeds",
+      params: {
+        publishedStory: JSON.stringify({
+          id: `story-${Date.now()}`,
+          userId: params.userId || "user-001",
+          username: params.username || "herbert237",
+          avatar: params.avatar || "",
+          uri: uri || null,
+          type: type || "image",
+          text: text || "",
+          backgroundColor: backgroundColor || "#000000",
+        }),
+      },
+    });
   };
 
   return (
