@@ -2,41 +2,20 @@ import React from "react";
 import { Tabs } from "expo-router";
 import BottomTabBar from "../../components/navigation/BottomTabBar";
 
-function isStoryRoute(route) {
-  if (!route) {
-    return false;
-  }
-
-  if (route.name?.includes("story")) {
-    return true;
-  }
-
-  if (route.state?.routes) {
-    return route.state.routes.some((nestedRoute) =>
-      isStoryRoute(nestedRoute),
-    );
-  }
-
-  return false;
-}
-
-function isCommentsRoute(route) {
-  if (!route) {
-    return false;
-  }
-
-  if (route.name?.includes("comments")) {
-    return true;
-  }
-
-  if (route.state?.routes) {
-    return route.state.routes.some((nestedRoute) =>
-      isCommentsRoute(nestedRoute),
-    );
-  }
-
-  return false;
-}
+// Bottom navigation is rendered ONLY on these exact
+// tab root routes:
+//   feeds
+//   reels
+//   chats
+//   profile
+//
+// Every nested/child route gets NO bottom navigation.
+const BOTTOM_NAV_ROUTES = new Set([
+  "feeds",
+  "reels",
+  "chats",
+  "profile",
+]);
 
 export default function MainLayout() {
   return (
@@ -49,18 +28,23 @@ export default function MainLayout() {
 
         const activeRoute = state.routes[state.index];
 
-        // Hide BottomTabBar anywhere inside the Story flow.
-        if (isStoryRoute(activeRoute)) {
+        const routeName = activeRoute?.name || "";
+        const firstSegment = routeName.split("/")[0];
+        const activeTab = firstSegment;
+
+        // Only show bottom nav on exact tab root routes.
+        // Tab roots with a layout (feeds, profile) appear as just the tab name.
+        // Tab roots without a layout (reels/index, chats/index) include "/index".
+        // Every other nested route gets NO bottom navigation.
+        const isRootTabRoute = BOTTOM_NAV_ROUTES.has(firstSegment);
+        const isRootIndexScreen = routeName === `${firstSegment}/index`;
+        const shouldShowBottomNav =
+          isRootTabRoute &&
+          (routeName === firstSegment || isRootIndexScreen);
+
+        if (!shouldShowBottomNav) {
           return null;
         }
-
-        // Hide BottomTabBar on the Comments screen.
-        if (isCommentsRoute(activeRoute)) {
-          return null;
-        }
-
-        const activeTab =
-          activeRoute?.name?.split("/")[0] || "feeds";
 
         const handleTabPress = (tabKey) => {
           const route = state.routes.find((item) => {

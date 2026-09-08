@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,8 +11,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { createURL } from "expo-linking";
-import QRCode from "react-native-qrcode-svg";
 
 import {
   currentUser,
@@ -37,7 +34,6 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState(DUMMY_PROFILE);
   const [activeTab, setActiveTab] = useState("posts");
   const [refreshing, setRefreshing] = useState(false);
-  const [qrVisible, setQrVisible] = useState(false);
 
   const isOwnProfile =
     !params?.userId || String(params.userId) === String(DUMMY_PROFILE.id);
@@ -73,8 +69,8 @@ export default function ProfileScreen() {
   }, []);
 
   const handleEditProfile = useCallback(() => {
-    console.log("Edit profile");
-  }, []);
+    router.push("/(main)/profile/edit");
+  }, [router]);
 
   const handleMessage = useCallback(() => {
     console.log("Message user:", profile.id);
@@ -377,7 +373,7 @@ export default function ProfileScreen() {
               </Pressable>
 
               <Pressable
-                onPress={() => setQrVisible(true)}
+                onPress={() => router.push("/(main)/profile/share")}
                 accessibilityRole="button"
                 accessibilityLabel="Show profile QR code"
                 style={({ pressed }) => [
@@ -521,47 +517,6 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpace} />
       </ScrollView>
-
-      {/* =======================================================
-          QR MODAL
-      ======================================================== */}
-
-      <Modal
-        visible={qrVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setQrVisible(false)}
-      >
-        <View style={styles.qrBackdrop}>
-          <View style={styles.qrCard} accessibilityViewIsModal>
-            <Text style={styles.emptyTitle}>Your profile QR code</Text>
-
-            <Text style={styles.username}>@{displayProfile.username}</Text>
-
-            <View style={styles.qrCode}>
-              <QRCode
-                value={createURL(
-                  `/feeds/profile/${encodeURIComponent(displayProfile.id)}`,
-                )}
-                size={200}
-                quietZone={12}
-              />
-            </View>
-
-            <Text style={styles.emptyText}>
-              Scan to open your profile in Gists.
-            </Text>
-
-            <Pressable
-              onPress={() => setQrVisible(false)}
-              accessibilityRole="button"
-              style={styles.topActionButton}
-            >
-              <Text style={styles.topActionText}>Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1086,34 +1041,5 @@ const styles = StyleSheet.create({
 
   bottomSpace: {
     height: 80,
-  },
-
-  /*
-   * ==========================================================
-   * QR MODAL
-   * ==========================================================
-   */
-
-  qrBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-
-  qrCard: {
-    width: "100%",
-    maxWidth: 340,
-    padding: 20,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  qrCode: {
-    paddingVertical: 8,
-    backgroundColor: "#FFFFFF",
   },
 });
