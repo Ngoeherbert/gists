@@ -1,9 +1,5 @@
 import React, { useCallback } from "react";
-import {
-  FlatList,
-  StyleSheet,
-  View,
-} from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 
 import StoryBar from "./StoryBar";
 import PostCard from "./PostCard";
@@ -30,23 +26,39 @@ export default function FeedList({
   onEndReached,
   ListEmptyComponent,
 }) {
+  const handleStoryPress = useCallback(
+    (story) => {
+      if (typeof onStoryPress !== "function") {
+        return;
+      }
+
+      /*
+       * Pass the ORIGINAL story object directly.
+       *
+       * Do not replace it with currentUser,
+       * do not construct a new user object,
+       * and do not pass only the avatar/name.
+       *
+       * StoryBar is responsible for giving us
+       * the actual story that was tapped.
+       */
+      onStoryPress(story);
+    },
+    [onStoryPress],
+  );
+
   const renderHeader = useCallback(
     () => (
       <View style={styles.header}>
         <StoryBar
           stories={stories}
           currentUser={currentUser}
-          onStoryPress={onStoryPress}
+          onStoryPress={handleStoryPress}
           onCreateStory={onCreateStory}
         />
       </View>
     ),
-    [
-      stories,
-      currentUser,
-      onStoryPress,
-      onCreateStory,
-    ],
+    [stories, currentUser, handleStoryPress, onCreateStory],
   );
 
   const renderItem = useCallback(
@@ -125,9 +137,7 @@ export default function FeedList({
       onEndReachedThreshold={0.6}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={
-        posts.length === 0
-          ? styles.emptyContent
-          : styles.content
+        posts.length === 0 ? styles.emptyContent : styles.content
       }
       removeClippedSubviews
     />

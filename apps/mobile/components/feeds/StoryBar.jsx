@@ -8,13 +8,41 @@ export default function StoryBar({
   onStoryPress,
   onCreateStory,
 }) {
+  // Group stories by userId.
+  const groupedStories = stories.reduce((groups, story) => {
+    const userId = String(story?.userId ?? story?.id);
+
+    if (!groups[userId]) {
+      groups[userId] = [];
+    }
+
+    groups[userId].push(story);
+
+    return groups;
+  }, {});
+
+  // One avatar per user.
+  const userStories = Object.values(groupedStories).map((storyGroup) => {
+    const firstStory = storyGroup[0];
+
+    return {
+      ...firstStory,
+
+      // Keep all stories belonging to this user.
+      storyGroup,
+
+      // Stable ID for the avatar.
+      id: `user-${firstStory.userId}`,
+    };
+  });
+
   const items = [
     {
       id: "my-story",
       ...(currentUser || {}),
       isOwn: true,
     },
-    ...stories,
+    ...userStories,
   ];
 
   return (
@@ -31,9 +59,18 @@ export default function StoryBar({
             name={item.name || item.username}
             viewed={item.viewed}
             isOwn={item.isOwn}
-            onPress={() =>
-              item.isOwn ? onCreateStory?.() : onStoryPress?.(item)
-            }
+            onPress={() => {
+              if (item.isOwn) {
+                onCreateStory?.();
+                return;
+              }
+
+              // Pass the grouped user stories.
+              onStoryPress?.({
+                ...item,
+                stories: item.storyGroup,
+              });
+            }}
           />
         )}
       />
@@ -48,6 +85,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#E5E5E5",
   },
+
   content: {
     paddingHorizontal: 16,
     paddingVertical: 12,

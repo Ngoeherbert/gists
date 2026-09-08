@@ -1,6 +1,4 @@
-// apps/mobile/components/comments/CommentInput.jsx
-
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -23,30 +21,69 @@ export default function CommentInput({
   onCancelReply,
   loading = false,
 }) {
-  const [internalValue, setInternalValue] = useState("");
-  const inputRef = useRef(null);
+  /*
+   * The text actually shown/used. Updated synchronously
+   * on every keystroke so the send button never flickers
+   * while the (potentially async) parent state catches up.
+   */
+  const [displayText, setDisplayText] = useState(() => String(value ?? ""));
+
+  /*
+   * Last text we reported to the parent. Used to tell
+   * apart external value changes (e.g. the parent
+   * clearing the input after submit) from the parent's
+   * lagging echo of our own keystrokes.
+   */
+  const lastEmittedRef = useRef(String(value ?? ""));
 
   const isControlled = value !== undefined;
-  const text = isControlled ? value : internalValue;
 
-  const setText = (nextValue) => {
-    if (isControlled) {
-      onChangeText?.(nextValue);
-    } else {
-      setInternalValue(nextValue);
-      onChangeText?.(nextValue);
+  const text = displayText;
+
+  const hasText = text.trim().length > 0;
+
+  /*
+   * Sync only when the value changed externally.
+   * Values that match what we last emitted are the
+   * parent simply echoing our typing and must NOT
+   * override the local text (this prevents the
+   * disabled/enabled flicker).
+   */
+  useEffect(() => {
+    if (!isControlled) {
+      return;
     }
+
+    const nextValue = String(value ?? "");
+
+    if (nextValue !== lastEmittedRef.current) {
+      lastEmittedRef.current = nextValue;
+
+      setDisplayText(nextValue);
+    }
+  }, [isControlled, value]);
+
+  const handleChangeText = (nextValue) => {
+    lastEmittedRef.current = nextValue;
+
+    setDisplayText(nextValue);
+
+    onChangeText?.(nextValue);
   };
 
   const handleSubmit = () => {
-    const trimmed = text.trim();
+    if (!hasText || loading) {
+      return;
+    }
 
-    if (!trimmed || loading) return;
+    const trimmedText = text.trim();
 
-    onSubmit?.(trimmed);
+    onSubmit?.(trimmedText);
 
     if (!isControlled) {
-      setInternalValue("");
+      lastEmittedRef.current = "";
+
+      setDisplayText("");
     }
   };
 
@@ -58,7 +95,8 @@ export default function CommentInput({
       {replyingTo && (
         <View style={styles.replyingBar}>
           <View style={styles.replyingInfo}>
-            <Ionicons name="return-down-forward" size={16} color="#555" />
+            <Ionicons name="return-down-forward" size={16} color="#555555" />
+
             <Text style={styles.replyingText} numberOfLines={1}>
               Replying to{" "}
               {replyingTo?.user?.name ||
@@ -67,8 +105,12 @@ export default function CommentInput({
             </Text>
           </View>
 
-          <Pressable onPress={onCancelReply} style={styles.cancelReply}>
-            <Ionicons name="close" size={18} color="#555" />
+          <Pressable
+            onPress={onCancelReply}
+            hitSlop={8}
+            style={styles.cancelReply}
+          >
+            <Ionicons name="close" size={18} color="#555555" />
           </Pressable>
         </View>
       )}
@@ -82,31 +124,29 @@ export default function CommentInput({
 
         <View style={styles.inputWrapper}>
           <TextInput
-            ref={inputRef}
             value={text}
-            onChangeText={setText}
+            onChangeText={handleChangeText}
             placeholder={placeholder}
-            placeholderTextColor="#999"
+            placeholderTextColor="#999999"
             multiline
             maxLength={1000}
             style={styles.input}
             returnKeyType="default"
+            blurOnSubmit={false}
           />
 
           <Pressable
             onPress={handleSubmit}
-            disabled={!text.trim() || loading}
+            disabled={!hasText || loading}
             style={[
               styles.sendButton,
-              (!text.trim() || loading) && styles.sendButtonDisabled,
+              (!hasText || loading) && styles.sendButtonDisabled,
             ]}
-            accessibilityRole="button"
-            accessibilityLabel="Post comment"
           >
             <Ionicons
               name="arrow-up"
               size={18}
-              color={!text.trim() || loading ? "#999" : "#fff"}
+              color={hasText && !loading ? "#FFFFFF" : "#999999"}
             />
           </Pressable>
         </View>
@@ -121,70 +161,79 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ddd",
-    backgroundColor: "#fafafa",
+    borderTopColor: "#DDDDDD",
+    backgroundColor: "#FAFAFA",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   replyingInfo: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    flex: 1,
   },
+
   replyingText: {
-    color: "#555",
-    fontSize: 12,
     flex: 1,
+    color: "#555555",
+    fontSize: 12,
   },
+
   cancelReply: {
     width: 30,
     height: 30,
     alignItems: "center",
     justifyContent: "center",
   },
+
   container: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#ddd",
-    backgroundColor: "#fff",
+    borderTopColor: "#DDDDDD",
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 10,
   },
+
   inputWrapper: {
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
-    borderRadius: 22,
-    backgroundColor: "#f2f2f2",
     paddingLeft: 16,
     paddingRight: 4,
     paddingVertical: 4,
+    borderRadius: 22,
+    backgroundColor: "#F2F2F2",
     flexDirection: "row",
     alignItems: "flex-end",
   },
+
   input: {
     flex: 1,
     minHeight: 36,
     maxHeight: 108,
-    paddingVertical: 8,
     paddingHorizontal: 0,
-    color: "#111",
+    paddingVertical: 8,
+    color: "#111111",
     fontSize: 14,
     lineHeight: 20,
+    outlineStyle: "none",
   },
+
   sendButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#000",
+    backgroundColor: "#000000",
     alignItems: "center",
     justifyContent: "center",
   },
+
   sendButtonDisabled: {
-    backgroundColor: "#ddd",
+    backgroundColor: "#DDDDDD",
   },
 });

@@ -1,5 +1,3 @@
-// apps/mobile/app/(main)/feeds/index.jsx
-
 import React, { useCallback, useMemo, useState } from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -45,38 +43,78 @@ export default function FeedsScreen() {
     }
   }, []);
 
+  /*
+   * Open another user's Story in the Story Viewer.
+   *
+   * IMPORTANT:
+   * - Keep the original story objects untouched.
+   * - Pass the complete stories array.
+   * - Pass the index of the tapped story.
+   *
+   * This allows the viewer to handle:
+   * - tap right -> next story
+   * - tap left -> previous story
+   * - timer -> next story
+   * - final story -> return to Feed
+   */
   const handleStoryPress = useCallback(
     (story) => {
       if (!story?.id) return;
 
+      const storyGroup = Array.isArray(story?.stories)
+        ? story.stories
+        : [story];
+
+      const firstStory = storyGroup[0];
+
+      if (!firstStory?.id) return;
+
+      // Find the first story of this user
+      // inside the original global story list.
+      const index = stories.findIndex(
+        (item) => String(item?.id) === String(firstStory.id),
+      );
+
       router.push({
-        pathname: "/(main)/feeds/story",
+        pathname: "/(main)/feeds/story/viewer",
         params: {
-          storyId: String(story.id),
+          stories: JSON.stringify(stories),
+          index: String(index >= 0 ? index : 0),
+          storyId: String(firstStory.id),
         },
       });
     },
-    [router],
+    [router, stories],
   );
 
+  /*
+   * Only the user's own Story opens
+   * the Story creator.
+   */
   const handleCreateStory = useCallback(() => {
     router.push("/(main)/feeds/story/create");
   }, [router]);
 
+  /*
+   * Open post.
+   */
   const handlePostPress = useCallback(
     (post) => {
       if (!post?.id) return;
 
       router.push({
-        pathname: "/(main)/feeds/post",
+        pathname: "/(main)/feeds/post/[id]",
         params: {
-          postId: String(post.id),
+          id: String(post.id),
         },
       });
     },
     [router],
   );
 
+  /*
+   * Open user profile.
+   */
   const handleUserPress = useCallback(
     (post, user) => {
       const userId = user?.id || post?.userId || post?.user?.id;
@@ -84,7 +122,7 @@ export default function FeedsScreen() {
       if (!userId) return;
 
       router.push({
-        pathname: "/(main)/profile",
+        pathname: "/(main)/feeds/profile/[userId]",
         params: {
           userId: String(userId),
         },
@@ -93,12 +131,18 @@ export default function FeedsScreen() {
     [router],
   );
 
+  /*
+   * Post menu.
+   */
   const handlePostMenu = useCallback((post) => {
     if (!post?.id) return;
 
     console.log("Post menu:", post.id);
   }, []);
 
+  /*
+   * Like post.
+   */
   const handleLike = useCallback((post) => {
     if (!post?.id) return;
 
@@ -122,6 +166,9 @@ export default function FeedsScreen() {
     );
   }, []);
 
+  /*
+   * Open post comments.
+   */
   const handleComment = useCallback(
     (post) => {
       if (!post?.id) return;
@@ -137,6 +184,9 @@ export default function FeedsScreen() {
     [router],
   );
 
+  /*
+   * Repost.
+   */
   const handleRepost = useCallback((post) => {
     if (!post?.id) return;
 
@@ -160,12 +210,18 @@ export default function FeedsScreen() {
     );
   }, []);
 
+  /*
+   * Share post.
+   */
   const handleShare = useCallback((post) => {
     if (!post?.id) return;
 
     console.log("Share post:", post.id);
   }, []);
 
+  /*
+   * Save post.
+   */
   const handleSave = useCallback((post) => {
     if (!post?.id) return;
 
@@ -186,16 +242,25 @@ export default function FeedsScreen() {
     );
   }, []);
 
+  /*
+   * Search.
+   */
   const handleSearch = useCallback(() => {
     router.push("/(main)/feeds/discover");
   }, [router]);
 
+  /*
+   * Notifications.
+   */
   const handleNotifications = useCallback(() => {
     setUnreadNotifications(0);
 
     router.push("/(main)/feeds/notifications");
   }, [router]);
 
+  /*
+   * Pagination.
+   */
   const handleEndReached = useCallback(() => {
     console.log("Load more posts");
   }, []);
