@@ -148,7 +148,7 @@ export default function StoryEditScreen() {
             <Text style={styles.errorTitle}>Nothing to edit</Text>
 
             <Text style={styles.errorText}>
-              We couldn't find the Story media you selected.
+              We could not find the Story media you selected.
             </Text>
 
             <Pressable

@@ -11,6 +11,7 @@ export default function FeedList({
 
   onStoryPress,
   onCreateStory,
+  onStoryDelete,
 
   onPostPress,
   onUserPress,
@@ -32,19 +33,28 @@ export default function FeedList({
         return;
       }
 
-      /*
-       * Pass the ORIGINAL story object directly.
-       *
-       * Do not replace it with currentUser,
-       * do not construct a new user object,
-       * and do not pass only the avatar/name.
-       *
-       * StoryBar is responsible for giving us
-       * the actual story that was tapped.
-       */
       onStoryPress(story);
     },
     [onStoryPress],
+  );
+
+  const handleCreateStory = useCallback(() => {
+    if (typeof onCreateStory !== "function") {
+      return;
+    }
+
+    onCreateStory();
+  }, [onCreateStory]);
+
+  const handleStoryDelete = useCallback(
+    (story) => {
+      if (typeof onStoryDelete !== "function") {
+        return;
+      }
+
+      onStoryDelete(story);
+    },
+    [onStoryDelete],
   );
 
   const renderHeader = useCallback(
@@ -54,11 +64,12 @@ export default function FeedList({
           stories={stories}
           currentUser={currentUser}
           onStoryPress={handleStoryPress}
-          onCreateStory={onCreateStory}
+          onCreateStory={handleCreateStory}
+          onStoryDelete={handleStoryDelete}
         />
       </View>
     ),
-    [stories, currentUser, handleStoryPress, onCreateStory],
+    [stories, currentUser, handleStoryPress, handleCreateStory, handleStoryDelete],
   );
 
   const renderItem = useCallback(

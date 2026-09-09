@@ -7,6 +7,8 @@ export default function StoryBar({
   currentUser,
   onStoryPress,
   onCreateStory,
+  onStoryDelete,
+  onMorePress,
 }) {
   const currentUserId = String(
     currentUser?.id ?? currentUser?.userId ?? currentUser?.user?.id,
@@ -73,9 +75,19 @@ export default function StoryBar({
         renderItem={({ item }) => (
           <StoryAvatar
             uri={item.avatar || item.photo || item.profilePhoto}
+            avatarUri={
+              item.avatar ||
+              item.photo ||
+              item.profilePhoto ||
+              item.user?.avatar ||
+              item.user?.profileImage
+            }
             name={item.name || item.username}
             viewed={item.viewed}
             isOwn={item.isOwn}
+            onDelete={
+              item.isOwn ? () => onStoryDelete?.(item) : undefined
+            }
             onPress={() => {
               if (item.isOwn) {
                 if (item.storyGroup && item.storyGroup.length > 0) {

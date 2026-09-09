@@ -8,6 +8,7 @@ import React, {
 
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Easing,
@@ -26,6 +27,8 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import useStoryStore from "../../../../stores/storyStore";
 
 const { width, height } = Dimensions.get("window");
 
@@ -986,13 +989,46 @@ export default function StoryViewerScreen() {
     closeMore();
   }, [closeMore]);
 
-  const handleBlock = useCallback(() => {
-    /*
-     * Connect block user API here.
-     */
-
+  /*
+   * --------------------------------------------------
+   * DELETE STORY
+   *
+   * Only available when the user is viewing
+   * their own stories.
+   * --------------------------------------------------
+   */
+  const handleDeleteStory = useCallback(() => {
     closeMore();
-  }, [closeMore]);
+
+    if (!story?.id) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete Story?",
+      "This story will be permanently removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            try {
+              const deleteStory = useStoryStore.getState().removeStory;
+
+              if (typeof deleteStory === "function") {
+                deleteStory(story.id);
+              }
+            } catch (error) {
+              console.warn("Unable to delete story:", error);
+            }
+
+            router.replace("/(main)/feeds");
+          },
+        },
+      ],
+    );
+  }, [closeMore, story?.id, router]);
 
   /*
    * --------------------------------------------------
@@ -1450,23 +1486,31 @@ export default function StoryViewerScreen() {
                 <Text style={styles.menuText}>Report</Text>
               </Pressable>
 
-              <View style={styles.menuDivider} />
+              {isOwnStory ? (
+                <>
+                  <View style={styles.menuDivider} />
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  pressed && styles.menuItemPressed,
-                ]}
-                onPress={handleBlock}
-              >
-                <View style={styles.menuIcon}>
-                  <Ionicons name="ban-outline" size={19} color="#D11A2A" />
-                </View>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.menuItem,
+                      pressed && styles.menuItemPressed,
+                    ]}
+                    onPress={handleDeleteStory}
+                  >
+                    <View style={styles.menuIcon}>
+                      <Ionicons
+                        name="trash-outline"
+                        size={19}
+                        color="#D11A2A"
+                      />
+                    </View>
 
-                <Text style={[styles.menuText, styles.menuDangerText]}>
-                  Block
-                </Text>
-              </Pressable>
+                    <Text style={[styles.menuText, styles.menuDangerText]}>
+                      Delete Story
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
             </Animated.View>
           </>
         ) : null}

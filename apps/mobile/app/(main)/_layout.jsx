@@ -26,23 +26,38 @@ export default function MainLayout() {
       tabBar={(props) => {
         const { state, navigation } = props;
 
-        const activeRoute = state.routes[state.index];
+        // Get the active tab route.
+        const activeTabRoute = state.routes[state.index];
+        const activeTabName = activeTabRoute?.name || "";
+        const activeTabFirstSegment = activeTabName.split("/")[0];
 
-        const routeName = activeRoute?.name || "";
-        const firstSegment = routeName.split("/")[0];
-        const activeTab = firstSegment;
+        // If the active tab is not in the bottom nav set, hide the bottom nav.
+        if (!BOTTOM_NAV_ROUTES.has(activeTabFirstSegment)) {
+          return null;
+        }
+
+        // Dig into the tab's nested stack state to find the actual screen.
+        const nestedState = activeTabRoute?.state;
+        const nestedRoutes = nestedState?.routes || [];
+        const nestedIndex = nestedState?.index ?? 0;
+        const activeNestedRoute = nestedRoutes[nestedIndex];
+
+        // Determine the actual screen name.
+        // If there's a nested state, use the nested route name.
+        // Otherwise, use the tab route name directly.
+        const actualRouteName =
+          nestedRoutes.length > 0
+            ? (activeNestedRoute?.name || "")
+            : activeTabName;
 
         // Only show bottom nav on exact tab root routes.
-        // Tab roots with a layout (feeds, profile) appear as just the tab name.
-        // Tab roots without a layout (reels/index, chats/index) include "/index".
-        // Every other nested route gets NO bottom navigation.
-        const isRootTabRoute = BOTTOM_NAV_ROUTES.has(firstSegment);
-        const isRootIndexScreen = routeName === `${firstSegment}/index`;
-        const shouldShowBottomNav =
-          isRootTabRoute &&
-          (routeName === firstSegment || isRootIndexScreen);
+        // Root screens are: tab name, tab/index, or index alone.
+        const isRootScreen =
+          actualRouteName === activeTabFirstSegment ||
+          actualRouteName === `${activeTabFirstSegment}/index` ||
+          actualRouteName === "index";
 
-        if (!shouldShowBottomNav) {
+        if (!isRootScreen) {
           return null;
         }
 
@@ -74,7 +89,7 @@ export default function MainLayout() {
         return (
           <BottomTabBar
             {...props}
-            activeTab={activeTab}
+            activeTab={activeTabFirstSegment}
             onTabPress={handleTabPress}
           />
         );

@@ -1,22 +1,34 @@
 // apps/mobile/components/feeds/StoryAvatar.jsx
+import { Ionicons } from "@expo/vector-icons";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 export default function StoryAvatar({
   uri,
+  avatarUri,
   name,
   size = 120,
   viewed = false,
   isOwn = false,
   onPress,
+  onMorePress,
+  onDelete,
 }) {
   const displayName = isOwn ? "You" : name || "Story";
   const initial = name?.trim()?.charAt(0)?.toUpperCase() || "Y";
 
   const height = size * 1.42;
 
+  const handleLongPress = (event) => {
+    if (!isOwn || !onDelete) return;
+    event.stopPropagation?.();
+    onDelete();
+  };
+
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={handleLongPress}
+      delayLongPress={400}
       disabled={!onPress}
       style={({ pressed }) => [
         styles.container,
@@ -60,17 +72,29 @@ export default function StoryAvatar({
 
         {/* Own story + button */}
         {isOwn && (
-          <View style={styles.addButton}>
-            <Text style={styles.addText}>+</Text>
+          <View style={styles.topRight}>
+            {onMorePress ? (
+              <Pressable
+                onPress={onMorePress}
+                hitSlop={8}
+                style={styles.moreButton}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={18}
+                  color="#FFFFFF"
+                />
+              </Pressable>
+            ) : null}
           </View>
         )}
 
         {/* Bottom user info */}
         <View style={styles.userInfo}>
           <View style={styles.avatarWrapper}>
-            {uri ? (
+            {avatarUri ? (
               <Image
-                source={{ uri }}
+                source={{ uri: avatarUri }}
                 resizeMode="cover"
                 style={styles.avatar}
               />
@@ -136,38 +160,21 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  /* Modern centered + button */
-  addButton: {
+/* Top-right actions for own story */
+  topRight: {
     position: "absolute",
-    top: "50%",
-    left: "50%",
-    width: 30,
-    height: 30,
-    marginLeft: -15,
-    marginTop: -15,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-
-    backgroundColor: "#1c1c1ccb",
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-
-    elevation: 5,
+    top: 10,
+    right: 10,
+    zIndex: 5,
   },
 
-  addText: {
-    color: "#ffffff",
-    fontSize: 28,
-    lineHeight: 31,
-    fontWeight: "400",
-    marginTop: -2,
+  moreButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   /* Bottom-left identity */

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { SafeAreaView, StyleSheet, View } from "react-native";
+import { Alert, SafeAreaView, StyleSheet, View } from "react-native";
 
 import { useRouter, useLocalSearchParams } from "expo-router";
 
@@ -30,6 +30,7 @@ export default function FeedsScreen() {
 
   const storeStories = useStoryStore((state) => state.stories);
   const addStoryToStore = useStoryStore((state) => state.addStory);
+  const removeStoryFromStore = useStoryStore((state) => state.removeStory);
 
   const [stories, setStories] = useState(storeStories);
 
@@ -415,6 +416,35 @@ export default function FeedsScreen() {
 
   /*
    * =========================================================
+   * DELETE STORY
+   * =========================================================
+   */
+  const handleStoryDelete = useCallback(
+    (story) => {
+      if (!story?.id) {
+        return;
+      }
+
+      Alert.alert(
+        "Delete Story?",
+        "This story will be permanently removed.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              removeStoryFromStore(story.id);
+            },
+          },
+        ],
+      );
+    },
+    [removeStoryFromStore],
+  );
+
+  /*
+   * =========================================================
    * OPEN POST
    * =========================================================
    */
@@ -694,6 +724,7 @@ export default function FeedsScreen() {
         currentUser={feedData.currentUser}
         onStoryPress={handleStoryPress}
         onCreateStory={handleCreateStory}
+        onStoryDelete={handleStoryDelete}
         onPostPress={handlePostPress}
         onUserPress={handleUserPress}
         onPostMenu={handlePostMenu}
