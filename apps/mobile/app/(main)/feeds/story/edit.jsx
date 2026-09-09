@@ -27,6 +27,11 @@ export default function StoryEditScreen() {
     ? params.backgroundColor[0]
     : params.backgroundColor;
 
+  const isCreateTab = params.fromCreate === "true";
+  const backRoute = isCreateTab
+    ? "/(main)/create"
+    : "/(main)/feeds/story/create";
+
   const isTextStory = type === "text";
 
   const [storyText, setStoryText] = useState(initialText || "");
@@ -57,7 +62,7 @@ export default function StoryEditScreen() {
     Keyboard.dismiss();
 
     router.replace({
-      pathname: "/(main)/feeds/story/create",
+      pathname: backRoute,
     });
   };
 
