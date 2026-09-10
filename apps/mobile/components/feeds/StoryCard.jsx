@@ -16,6 +16,7 @@ export default function StoryCard({
   onReply,
   onMorePress,
   onClose,
+  onAddStory,
 }) {
   if (!story) return null;
 
@@ -75,12 +76,135 @@ export default function StoryCard({
     onReply?.(story);
   };
 
+  const handleAddStoryPress = (event) => {
+    event.stopPropagation?.();
+    onAddStory?.();
+  };
+
+  const hasMedia = Boolean(mediaUri);
+  const isTextOnly = Boolean(caption) && !hasMedia;
+  const textColor = story.textColor || "#FFFFFF";
+
+  const renderProgress = (dark = false) => (
+    <View style={styles.progressContainer}>
+      <View style={dark ? styles.progressTrackDark : styles.progressTrack}>
+        <View
+          style={[
+            dark ? styles.progressFillDark : styles.progressFill,
+            { width: `${progress * 100}%` },
+          ]}
+        />
+      </View>
+    </View>
+  );
+
+  const renderHeader = (dark = false) => (
+    <View style={styles.header}>
+      <Pressable
+        onPress={handleUserPress}
+        hitSlop={6}
+        style={styles.userButton}
+      >
+        {avatar ? (
+          <Image
+            source={{ uri: avatar }}
+            style={dark ? styles.avatarDark : styles.avatar}
+          />
+        ) : (
+          <View
+            style={
+              dark ? styles.avatarPlaceholderDark : styles.avatarPlaceholder
+            }
+          >
+            <Text
+              style={dark ? styles.avatarInitialDark : styles.avatarInitial}
+            >
+              {name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.userInfo}>
+          <Text numberOfLines={1} style={dark ? styles.darkName : styles.name}>
+            {name}
+          </Text>
+
+          <Text
+            numberOfLines={1}
+            style={dark ? styles.darkTimestamp : styles.timestamp}
+          >
+            {timestamp}
+          </Text>
+        </View>
+      </Pressable>
+
+      <View style={styles.headerActions}>
+        {onMorePress ? (
+          <Pressable
+            onPress={handleMorePress}
+            hitSlop={10}
+            style={styles.iconButton}
+          >
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={22}
+              color={dark ? "#111111" : "#FFFFFF"}
+            />
+          </Pressable>
+        ) : null}
+
+        <Pressable onPress={handleClose} hitSlop={10} style={styles.iconButton}>
+          <Ionicons
+            name="close"
+            size={27}
+            color={dark ? "#111111" : "#FFFFFF"}
+          />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const renderReply = (dark = false) =>
+    onReply ? (
+      <Pressable onPress={handleReply} style={styles.replyContainer}>
+        <View style={dark ? styles.replyInputDark : styles.replyInput}>
+          <Text
+            style={dark ? styles.replyPlaceholderDark : styles.replyPlaceholder}
+          >
+            Reply to {name}
+          </Text>
+
+          {dark ? (
+            <Ionicons name="paper-plane-outline" size={18} color="#777777" />
+          ) : (
+            <View style={styles.replyIcon}>
+              <Ionicons name="paper-plane" size={17} color="#111111" />
+            </View>
+          )}
+        </View>
+      </Pressable>
+    ) : null;
+
+  const renderAddButton = (dark = false) => {
+    if (!onAddStory) return null;
+
+    return (
+      <Pressable onPress={handleAddStoryPress} style={styles.centerAddButton}>
+        <View
+          style={dark ? styles.addButtonCircleDark : styles.addButtonCircle}
+        >
+          <Ionicons name="add" size={28} color={dark ? "#111111" : "#FFFFFF"} />
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
     >
-      {mediaUri ? (
+      {hasMedia ? (
         <ImageBackground
           source={{ uri: mediaUri }}
           resizeMode="cover"
@@ -89,74 +213,9 @@ export default function StoryCard({
           <View style={styles.topOverlay} />
           <View style={styles.bottomOverlay} />
 
-          {/* Progress */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressTrack}>
-              <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${progress * 100}%`,
-                  },
-                ]}
-              />
-            </View>
-          </View>
+          {renderProgress()}
+          {renderHeader()}
 
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable
-              onPress={handleUserPress}
-              hitSlop={6}
-              style={styles.userButton}
-            >
-              {avatar ? (
-                <Image source={{ uri: avatar }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarInitial}>
-                    {name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.userInfo}>
-                <Text numberOfLines={1} style={styles.name}>
-                  {name}
-                </Text>
-
-                <Text numberOfLines={1} style={styles.timestamp}>
-                  {timestamp}
-                </Text>
-              </View>
-            </Pressable>
-
-            <View style={styles.headerActions}>
-              {onMorePress ? (
-                <Pressable
-                  onPress={handleMorePress}
-                  hitSlop={10}
-                  style={styles.iconButton}
-                >
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                </Pressable>
-              ) : null}
-
-              <Pressable
-                onPress={handleClose}
-                hitSlop={10}
-                style={styles.iconButton}
-              >
-                <Ionicons name="close" size={27} color="#FFFFFF" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Caption */}
           {caption ? (
             <View style={styles.captionContainer}>
               <Text numberOfLines={5} style={styles.caption}>
@@ -165,109 +224,42 @@ export default function StoryCard({
             </View>
           ) : null}
 
-          {/* Reply */}
-          {onReply ? (
-            <Pressable onPress={handleReply} style={styles.replyContainer}>
-              <View style={styles.replyInput}>
-                <Text style={styles.replyPlaceholder}>Reply to {name}</Text>
-
-                <View style={styles.replyIcon}>
-                  <Ionicons name="paper-plane" size={17} color="#111111" />
-                </View>
-              </View>
-            </Pressable>
-          ) : null}
+          {renderAddButton()}
+          {renderReply()}
         </ImageBackground>
+      ) : isTextOnly ? (
+        <View
+          style={[
+            styles.textBackground,
+            { backgroundColor: story.backgroundColor || "#111111" },
+          ]}
+        >
+          {renderProgress()}
+          {renderHeader()}
+
+          <View style={styles.textStoryContainer}>
+            <Text style={[styles.textStory, { color: textColor }]}>
+              {caption}
+            </Text>
+          </View>
+
+          {renderAddButton()}
+          {renderReply()}
+        </View>
       ) : (
-        <View style={styles.emptyBackground}>
-          {/* Progress */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressTrackDark}>
-              <View
-                style={[
-                  styles.progressFillDark,
-                  {
-                    width: `${progress * 100}%`,
-                  },
-                ]}
-              />
+        <View style={styles.placeholderBackground}>
+          {renderProgress(true)}
+          {renderHeader(true)}
+
+          <View style={styles.placeholderCenter}>
+            <View style={styles.placeholderIcon}>
+              <Ionicons name="images-outline" size={36} color="#999999" />
             </View>
+            <Text style={styles.placeholderText}>No story yet</Text>
           </View>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable onPress={handleUserPress} style={styles.userButton}>
-              {avatar ? (
-                <Image source={{ uri: avatar }} style={styles.avatarDark} />
-              ) : (
-                <View style={styles.avatarPlaceholderDark}>
-                  <Text style={styles.avatarInitialDark}>
-                    {name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.userInfo}>
-                <Text numberOfLines={1} style={styles.darkName}>
-                  {name}
-                </Text>
-
-                <Text style={styles.darkTimestamp}>{timestamp}</Text>
-              </View>
-            </Pressable>
-
-            <View style={styles.headerActions}>
-              {onMorePress ? (
-                <Pressable
-                  onPress={handleMorePress}
-                  hitSlop={10}
-                  style={styles.iconButton}
-                >
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={22}
-                    color="#111111"
-                  />
-                </Pressable>
-              ) : null}
-
-              <Pressable
-                onPress={handleClose}
-                hitSlop={10}
-                style={styles.iconButton}
-              >
-                <Ionicons name="close" size={27} color="#111111" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Text story */}
-          {caption ? (
-            <View style={styles.textStoryContainer}>
-              <Text style={styles.textStory}>{caption}</Text>
-            </View>
-          ) : (
-            <View style={styles.noMedia}>
-              <Ionicons name="images-outline" size={42} color="#999999" />
-
-              <Text style={styles.noMediaText}>No story media</Text>
-            </View>
-          )}
-
-          {/* Reply */}
-          {onReply ? (
-            <Pressable onPress={handleReply} style={styles.replyContainer}>
-              <View style={styles.replyInputDark}>
-                <Text style={styles.replyPlaceholderDark}>Reply to {name}</Text>
-
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={18}
-                  color="#777777"
-                />
-              </View>
-            </Pressable>
-          ) : null}
+          {renderAddButton(true)}
+          {renderReply(true)}
         </View>
       )}
     </Pressable>
@@ -286,6 +278,16 @@ const styles = StyleSheet.create({
   background: {
     flex: 1,
     justifyContent: "space-between",
+  },
+
+  textBackground: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+
+  placeholderBackground: {
+    flex: 1,
+    backgroundColor: "#F4F4F4",
   },
 
   topOverlay: {
@@ -479,11 +481,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 
-  emptyBackground: {
-    flex: 1,
-    backgroundColor: "#F4F4F4",
-  },
-
   avatarPlaceholderDark: {
     width: 42,
     height: 42,
@@ -519,23 +516,11 @@ const styles = StyleSheet.create({
   },
 
   textStory: {
-    color: "#111111",
+    color: "#FFFFFF",
     fontSize: 22,
     lineHeight: 31,
     fontWeight: "600",
     textAlign: "center",
-  },
-
-  noMedia: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  noMediaText: {
-    marginTop: 10,
-    color: "#888888",
-    fontSize: 13,
   },
 
   replyInputDark: {
@@ -557,5 +542,72 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.96,
+  },
+
+  centerAddButton: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginTop: -28,
+    marginLeft: -28,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 15,
+  },
+
+  addButtonCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.9)",
+  },
+
+  addButtonCircleDark: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#111111",
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  placeholderCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  placeholderIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#E0E0E0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
+  placeholderText: {
+    color: "#777777",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

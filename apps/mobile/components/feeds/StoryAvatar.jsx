@@ -12,11 +12,17 @@ export default function StoryAvatar({
   onPress,
   onMorePress,
   onDelete,
+  type,
+  text,
+  backgroundColor,
 }) {
-  const displayName = isOwn ? "You" : name || "Story";
+  const displayName = isOwn ? "Me" : name || "Story";
   const initial = name?.trim()?.charAt(0)?.toUpperCase() || "Y";
 
   const height = size * 1.42;
+  const isEmptyOwnStory = isOwn && !uri;
+
+  const hasAvatarUri = Boolean(avatarUri && avatarUri.trim() !== "");
 
   const handleLongPress = (event) => {
     if (!isOwn || !onDelete) return;
@@ -49,12 +55,51 @@ export default function StoryAvatar({
         ]}
       >
         {/* Story background */}
-        {uri ? (
+        {type === "text" && backgroundColor ? (
+          <View style={[styles.backgroundImage, { backgroundColor }]}>
+            <View style={styles.textPreviewContainer}>
+              <Text
+                numberOfLines={3}
+                style={[
+                  styles.textPreview,
+                  {
+                    fontSize: size * 0.12,
+                  },
+                  (backgroundColor === "#FFFFFF" ||
+                    backgroundColor === "#FFD600" ||
+                    backgroundColor === "#00C3FF") && {
+                    color: "#000000",
+                  },
+                ]}
+              >
+                {text}
+              </Text>
+            </View>
+          </View>
+        ) : uri ? (
           <Image
             source={{ uri }}
             resizeMode="cover"
             style={styles.backgroundImage}
           />
+        ) : isEmptyOwnStory && hasAvatarUri ? (
+          <Image
+            source={{ uri: avatarUri }}
+            resizeMode="cover"
+            style={styles.backgroundImage}
+          />
+        ) : !uri && hasAvatarUri && !isOwn ? (
+          <Image
+            source={{ uri: avatarUri }}
+            resizeMode="cover"
+            style={styles.backgroundImage}
+          />
+        ) : isEmptyOwnStory ? (
+          <View style={styles.emptyOwnStory}>
+            <View style={styles.addButton}>
+              <Ionicons name="add" size={size * 0.35} color="#1A1A2E" />
+            </View>
+          </View>
         ) : (
           <View style={styles.placeholder}>
             <Text
@@ -71,7 +116,7 @@ export default function StoryAvatar({
         )}
 
         {/* Own story + button */}
-        {isOwn && (
+        {isOwn && !isEmptyOwnStory && (
           <View style={styles.topRight}>
             {onMorePress ? (
               <Pressable
@@ -92,7 +137,7 @@ export default function StoryAvatar({
         {/* Bottom user info */}
         <View style={styles.userInfo}>
           <View style={styles.avatarWrapper}>
-            {avatarUri ? (
+            {hasAvatarUri ? (
               <Image
                 source={{ uri: avatarUri }}
                 resizeMode="cover"
@@ -148,6 +193,41 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
+  textPreviewContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+  },
+
+  textPreview: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  emptyOwnStory: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A1A2E",
+  },
+
+  addButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+
   placeholder: {
     flex: 1,
     alignItems: "center",
@@ -160,7 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-/* Top-right actions for own story */
+  /* Top-right actions for own story */
   topRight: {
     position: "absolute",
     top: 10,

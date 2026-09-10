@@ -9,6 +9,7 @@ export default function MessageInput({
   onAttachment,
   onCamera,
   onVoice,
+  pollAction,
   placeholder = "Message",
   disabled = false,
   replyingTo = null,
@@ -92,6 +93,17 @@ export default function MessageInput({
             </Pressable>
           )}
         </View>
+
+        {pollAction && (
+          <Pressable
+            onPress={pollAction}
+            disabled={disabled}
+            hitSlop={8}
+            style={styles.sideButton}
+          >
+            <Ionicons name="bar-chart-outline" size={22} color="#111111" />
+          </Pressable>
+        )}
 
         {canSend ? (
           <Pressable onPress={onSend} hitSlop={8} style={styles.sendButton}>

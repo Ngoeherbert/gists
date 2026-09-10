@@ -32,8 +32,10 @@ export default function MessageList({
   ListFooterComponent,
   refreshing = false,
   onRefresh,
+  renderItemOverride,
+  ListEmptyComponent,
 }) {
-  const renderItem = ({ item }) => {
+  const defaultRenderItem = ({ item }) => {
     const isMine =
       item.isMine ??
       String(item.senderId ?? item.userId) === String(currentUserId);
@@ -58,12 +60,19 @@ export default function MessageList({
     );
   };
 
+  const emptyList = ListEmptyComponent ?? (
+    <View style={styles.empty}>
+      <Text style={styles.emptyTitle}>No messages yet</Text>
+      <Text style={styles.emptyText}>Say hello to start the conversation.</Text>
+    </View>
+  );
+
   return (
     <FlatList
       inverted
       data={[...messages].reverse()}
       keyExtractor={(item, index) => String(item.id ?? index)}
-      renderItem={renderItem}
+      renderItem={renderItemOverride || defaultRenderItem}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       refreshing={refreshing}
@@ -71,10 +80,11 @@ export default function MessageList({
       ListHeaderComponent={
         <>
           {typing && <TypingIndicator />}
-          {ListFooterComponent}
+          {ListHeaderComponent}
         </>
       }
-      ListFooterComponent={ListHeaderComponent}
+      ListFooterComponent={ListFooterComponent}
+      ListEmptyComponent={emptyList}
       contentContainerStyle={styles.content}
     />
   );
@@ -97,5 +107,23 @@ const styles = StyleSheet.create({
     color: "#777777",
     fontSize: 11,
     fontWeight: "600",
+  },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 30,
+    paddingVertical: 30,
+    gap: 10,
+  },
+  emptyTitle: {
+    color: "#111111",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  emptyText: {
+    color: "#777777",
+    fontSize: 13,
+    textAlign: "center",
   },
 });

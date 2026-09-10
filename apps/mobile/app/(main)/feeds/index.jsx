@@ -188,12 +188,28 @@ export default function FeedsScreen() {
 
             username: nestedStory?.username || item?.username || "User",
 
-            avatar: nestedStory?.avatar || item?.avatar || null,
+            avatar:
+              nestedStory?.avatar ||
+              item?.avatar ||
+              null,
 
             uri:
               nestedStory?.uri ||
               nestedStory?.url ||
               nestedStory?.mediaUrl ||
+              nestedStory?.media?.url ||
+              null,
+
+            type:
+              nestedStory?.type ||
+              item?.type ||
+              (nestedStory?.uri || item?.uri ? "image" : "text"),
+
+            text: nestedStory?.text || item?.text || null,
+
+            backgroundColor:
+              nestedStory?.backgroundColor ||
+              item?.backgroundColor ||
               null,
           });
         });
@@ -237,6 +253,14 @@ export default function FeedsScreen() {
             item?.mediaUrl ||
             item?.media?.url ||
             null,
+
+          type:
+            item?.type ||
+            (item?.uri || item?.url || item?.mediaUrl ? "image" : "text"),
+
+          text: item?.text || null,
+
+          backgroundColor: item?.backgroundColor || null,
         });
       }
     });

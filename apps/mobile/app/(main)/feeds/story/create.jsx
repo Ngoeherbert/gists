@@ -9,6 +9,14 @@ export default function StoryCreateScreen() {
   };
 
   const handleContinue = (payload) => {
+    if (payload?.type === "text") {
+      router.push({
+        pathname: "/(main)/feeds/story/settings",
+        params: payload,
+      });
+      return;
+    }
+
     router.push({
       pathname: "/(main)/feeds/story/edit",
       params: payload,

@@ -22,7 +22,11 @@ import {
   View,
 } from "react-native";
 
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+
+import { useEvent } from "expo";
+
+import { VideoView, useVideoPlayer } from "expo-video";
 
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -30,18 +34,52 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import useStoryStore from "../../../../stores/storyStore";
 
+import { formatCount } from "../../../../utils/formatNumber";
+
 const { width, height } = Dimensions.get("window");
 
 const STORY_DURATION = 7000;
 
+const DEFAULT_AVATAR = "https://i.pravatar.cc/150?img=12";
+
 const DEFAULT_STORY = {
   id: "default-story",
   username: "Herbert",
-  avatar: "https://i.pravatar.cc/150?img=12",
+  avatar: DEFAULT_AVATAR,
   uri: null,
   type: "image",
   text: "",
   backgroundColor: "#000000",
+  createdAt: Date.now(),
+  overlayText: "",
+  overlayTextColor: "#FFFFFF",
+  overlayTextAlignment: "center",
+  overlayTextBackground: "transparent",
+  overlayTextPosition: { x: 0, y: 0 },
+  overlayTextScale: 1,
+};
+
+const formatStoryTime = (timestamp, referenceTime = Date.now()) => {
+  const diffMs = referenceTime - timestamp;
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSecs < 60) {
+    return "Just now";
+  } else if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  } else if (diffDays === 1) {
+    return "Yesterday";
+  } else if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  } else {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
 };
 
 const REACTIONS = [
@@ -157,6 +195,25 @@ export default function StoryViewerScreen() {
 
               backgroundColor:
                 storyItem?.backgroundColor || DEFAULT_STORY.backgroundColor,
+
+              // Timestamp
+              createdAt:
+                storyItem?.createdAt ||
+                storyItem?.timestamp ||
+                storyItem?.time ||
+                Date.now(),
+
+              // Overlay text
+              overlayText: storyItem?.overlayText || "",
+              overlayTextColor: storyItem?.overlayTextColor || "#FFFFFF",
+              overlayTextAlignment: storyItem?.overlayTextAlignment || "center",
+              overlayTextBackground:
+                storyItem?.overlayTextBackground || "transparent",
+              overlayTextPosition: storyItem?.overlayTextPosition || {
+                x: 0,
+                y: 0,
+              },
+              overlayTextScale: storyItem?.overlayTextScale || 1,
             };
           });
         }
@@ -196,6 +253,34 @@ export default function StoryViewerScreen() {
             : DEFAULT_STORY.backgroundColor,
 
         userId: typeof params.userId === "string" ? params.userId : null,
+
+        createdAt:
+          typeof params.createdAt === "string"
+            ? Number(params.createdAt)
+            : Date.now(),
+
+        overlayText:
+          typeof params.overlayText === "string" ? params.overlayText : "",
+        overlayTextColor:
+          typeof params.overlayTextColor === "string"
+            ? params.overlayTextColor
+            : "#FFFFFF",
+        overlayTextAlignment:
+          typeof params.overlayTextAlignment === "string"
+            ? params.overlayTextAlignment
+            : "center",
+        overlayTextBackground:
+          typeof params.overlayTextBackground === "string"
+            ? params.overlayTextBackground
+            : "transparent",
+        overlayTextPosition:
+          typeof params.overlayTextPosition === "string"
+            ? JSON.parse(params.overlayTextPosition)
+            : { x: 0, y: 0 },
+        overlayTextScale:
+          typeof params.overlayTextScale === "string"
+            ? Number(params.overlayTextScale)
+            : 1,
       },
     ];
   }, [
@@ -207,6 +292,13 @@ export default function StoryViewerScreen() {
     params.text,
     params.backgroundColor,
     params.userId,
+    params.createdAt,
+    params.overlayText,
+    params.overlayTextColor,
+    params.overlayTextAlignment,
+    params.overlayTextBackground,
+    params.overlayTextPosition,
+    params.overlayTextScale,
   ]);
 
   /*
@@ -259,10 +351,23 @@ export default function StoryViewerScreen() {
 
   const [mediaReady, setMediaReady] = useState(false);
 
-  /*
-   * Every time the active story changes,
-   * reset its media state.
-   */
+  const isVideoStory = story.type === "video" && Boolean(story?.uri);
+
+  const player = useVideoPlayer(
+    isVideoStory ? story.uri : null,
+    (videoPlayer) => {
+      videoPlayer.loop = true;
+    },
+  );
+
+  const { status: videoStatus, error: videoError } = useEvent(
+    player,
+    "statusChange",
+    {
+      status: player.status,
+    },
+  );
+
   useEffect(() => {
     if (isTextStory) {
       setMediaLoading(false);
@@ -271,21 +376,59 @@ export default function StoryViewerScreen() {
       return;
     }
 
+    if (isVideoStory) {
+      if (videoStatus === "readyToPlay") {
+        setMediaLoading(false);
+        setMediaError(false);
+        setMediaReady(true);
+      } else if (videoStatus === "error") {
+        setMediaLoading(false);
+        setMediaError(true);
+        setMediaReady(true);
+      } else {
+        setMediaLoading(true);
+        setMediaError(false);
+        setMediaReady(false);
+      }
+      return;
+    }
+
     if (story?.uri) {
       setMediaLoading(true);
       setMediaError(false);
       setMediaReady(false);
     } else {
-      /*
-       * No URI means this story cannot load.
-       * Do not keep the viewer spinning forever.
-       */
       setMediaLoading(false);
       setMediaError(true);
       setMediaReady(true);
     }
-  }, [story?.id, story?.uri, story?.type, isTextStory]);
+  }, [isTextStory, isVideoStory, story?.id, story?.uri, videoStatus]);
 
+  useEffect(() => {
+    if (isVideoStory && videoStatus === "error") {
+      console.warn("Story media failed to load:", {
+        storyId: story?.id,
+        uri: story?.uri,
+        error: videoError,
+      });
+    }
+  }, [isVideoStory, story?.id, story?.uri, videoStatus, videoError]);
+
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (!isVideoStory) {
+      return undefined;
+    }
+
+    if (paused || videoStatus !== "readyToPlay") {
+      player.pause();
+    } else {
+      player.play();
+    }
+
+    return undefined;
+  }, [isVideoStory, paused, player, videoStatus]);
   /*
    * --------------------------------------------------
    * USER GROUPS
@@ -409,11 +552,23 @@ export default function StoryViewerScreen() {
 
   const progressRef = useRef(0);
 
-  const [paused, setPaused] = useState(false);
+  const [now, setNow] = useState(Date.now());
 
   const storyStartedAtRef = useRef(Date.now());
 
   const storyFinishedRef = useRef(false);
+
+  const pressStartTimeRef = useRef(0);
+
+  const TAP_DURATION_THRESHOLD = 220;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   /*
    * --------------------------------------------------
@@ -442,6 +597,8 @@ export default function StoryViewerScreen() {
    */
 
   const [moreModalVisible, setMoreModalVisible] = useState(false);
+
+  const [viewersModalVisible, setViewersModalVisible] = useState(false);
 
   /*
    * --------------------------------------------------
@@ -536,8 +693,6 @@ export default function StoryViewerScreen() {
      * This keeps the feed in the navigation
      * stack and makes the X behave naturally.
      */
-    setPaused(true);
-
     if (router.canGoBack()) {
       router.back();
     } else {
@@ -630,32 +785,13 @@ export default function StoryViewerScreen() {
    */
 
   const handleClose = useCallback(() => {
-    /*
-     * Stop all story activity first.
-     */
-    setPaused(true);
-
     setReactionModalVisible(false);
 
     setMoreModalVisible(false);
 
     setCommentInputVisible(false);
 
-    /*
-     * The viewer was opened with router.push(),
-     * therefore router.back() is the correct way
-     * to close it.
-     */
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    /*
-     * Fallback in case the screen
-     * was opened directly.
-     */
-    router.replace("/(main)/feeds");
+    router.back();
   }, []);
 
   /*
@@ -669,8 +805,12 @@ export default function StoryViewerScreen() {
 
   const isOwnStory = Boolean(
     currentUserId &&
-      String(story?.userId ?? story?.id) === String(currentUserId),
+    String(story?.userId ?? story?.id) === String(currentUserId),
   );
+
+  const isEmptyOwnStory = isOwnStory && !story?.uri;
+
+  const hasRealAvatar = Boolean(story?.avatar && story.avatar.trim() !== "");
 
   const handleAddStory = useCallback(() => {
     router.push("/(main)/feeds/story/create");
@@ -714,6 +854,38 @@ export default function StoryViewerScreen() {
     handlePreviousStory,
   ]);
 
+  const handleLeftPressIn = useCallback(() => {
+    pressStartTimeRef.current = Date.now();
+
+    setPaused(true);
+  }, []);
+
+  const handleLeftPressOut = useCallback(() => {
+    const duration = Date.now() - pressStartTimeRef.current;
+
+    if (duration < TAP_DURATION_THRESHOLD) {
+      handleTapPrevious();
+    }
+
+    setPaused(false);
+  }, [handleTapPrevious]);
+
+  const handleRightPressIn = useCallback(() => {
+    pressStartTimeRef.current = Date.now();
+
+    setPaused(true);
+  }, []);
+
+  const handleRightPressOut = useCallback(() => {
+    const duration = Date.now() - pressStartTimeRef.current;
+
+    if (duration < TAP_DURATION_THRESHOLD) {
+      handleTapNext();
+    }
+
+    setPaused(false);
+  }, [handleTapNext]);
+
   /*
    * --------------------------------------------------
    * REACTIONS
@@ -724,8 +896,6 @@ export default function StoryViewerScreen() {
     setMoreModalVisible(false);
 
     setCommentInputVisible(false);
-
-    setPaused(true);
 
     setReactionModalVisible(true);
 
@@ -781,8 +951,6 @@ export default function StoryViewerScreen() {
       }),
     ]).start(() => {
       setReactionModalVisible(false);
-
-      setPaused(false);
     });
   }, [reactionScale, reactionOpacity, reactionTranslateY]);
 
@@ -797,8 +965,6 @@ export default function StoryViewerScreen() {
       setSelectedReaction(reaction);
 
       setReactionModalVisible(false);
-
-      setPaused(true);
 
       reactionFloatScale.setValue(0.72);
 
@@ -845,9 +1011,7 @@ export default function StoryViewerScreen() {
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start(() => {
-        setPaused(false);
-      });
+      ]).start();
     },
     [reactionFloatScale, reactionFloatOpacity, reactionFloatTranslateY],
   );
@@ -863,8 +1027,6 @@ export default function StoryViewerScreen() {
 
     setMoreModalVisible(false);
 
-    setPaused(true);
-
     setCommentInputVisible(true);
   }, []);
 
@@ -872,8 +1034,6 @@ export default function StoryViewerScreen() {
     setCommentInputVisible(false);
 
     setComment("");
-
-    setPaused(false);
   }, []);
 
   const handleSendComment = useCallback(() => {
@@ -883,15 +1043,9 @@ export default function StoryViewerScreen() {
       return;
     }
 
-    /*
-     * Connect comment API here.
-     */
-
     setComment("");
 
     setCommentInputVisible(false);
-
-    setPaused(false);
   }, [comment]);
 
   /*
@@ -904,8 +1058,6 @@ export default function StoryViewerScreen() {
     setReactionModalVisible(false);
 
     setCommentInputVisible(false);
-
-    setPaused(true);
 
     setMoreModalVisible(true);
 
@@ -946,8 +1098,6 @@ export default function StoryViewerScreen() {
       }),
     ]).start(() => {
       setMoreModalVisible(false);
-
-      setPaused(false);
     });
   }, [moreScale, moreOpacity]);
 
@@ -973,22 +1123,6 @@ export default function StoryViewerScreen() {
     closeMore();
   }, [closeMore]);
 
-  const handleHide = useCallback(() => {
-    /*
-     * Connect hide story API here.
-     */
-
-    closeMore();
-  }, [closeMore]);
-
-  const handleReport = useCallback(() => {
-    /*
-     * Connect report flow here.
-     */
-
-    closeMore();
-  }, [closeMore]);
-
   /*
    * --------------------------------------------------
    * DELETE STORY
@@ -1004,31 +1138,55 @@ export default function StoryViewerScreen() {
       return;
     }
 
-    Alert.alert(
-      "Delete Story?",
-      "This story will be permanently removed.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            try {
-              const deleteStory = useStoryStore.getState().removeStory;
+    Alert.alert("Delete Story?", "This story will be permanently removed.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          try {
+            const deleteStory = useStoryStore.getState().removeStory;
 
-              if (typeof deleteStory === "function") {
-                deleteStory(story.id);
-              }
-            } catch (error) {
-              console.warn("Unable to delete story:", error);
+            if (typeof deleteStory === "function") {
+              deleteStory(story.id);
             }
+          } catch (error) {
+            console.warn("Unable to delete story:", error);
+          }
 
-            router.replace("/(main)/feeds");
-          },
+          router.replace("/(main)/feeds");
         },
-      ],
-    );
+      },
+    ]);
   }, [closeMore, story?.id, router]);
+
+  const viewers = useMemo(() => {
+    const list = Array.isArray(story?.viewers) ? story.viewers : [];
+
+    return list.filter((item) => item && Object.keys(item).length > 0);
+  }, [story?.viewers]);
+
+  const viewerCount = useMemo(() => {
+    if (viewers.length > 0) {
+      return viewers.length;
+    }
+
+    const count = Number(story?.viewsCount || story?.views || 0);
+
+    return Number.isNaN(count) ? 0 : Math.max(0, count);
+  }, [story?.viewsCount, story?.views, viewers.length]);
+
+  const openViewers = useCallback(() => {
+    setPaused(true);
+
+    setViewersModalVisible(true);
+  }, []);
+
+  const closeViewers = useCallback(() => {
+    setViewersModalVisible(false);
+
+    setPaused(false);
+  }, []);
 
   /*
    * --------------------------------------------------
@@ -1110,23 +1268,65 @@ export default function StoryViewerScreen() {
         ]}
       >
         {isTextStory ? (
-          <View style={styles.textStory}>
-            <Text style={styles.storyText}>{story.text}</Text>
+          <View
+            style={[
+              styles.textStory,
+              {
+                backgroundColor: story.backgroundColor || "#000000",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.storyText,
+                (story.backgroundColor === "#FFFFFF" ||
+                  story.backgroundColor === "#FFD600" ||
+                  story.backgroundColor === "#00C3FF") && {
+                  color: "#000000",
+                },
+              ]}
+            >
+              {story.text}
+            </Text>
           </View>
-        ) : story.uri ? (
+        ) : isVideoStory ? (
           <>
-            <Image
-              source={{
-                uri: story.uri,
-              }}
+            <VideoView
+              player={player}
               style={styles.media}
-              resizeMode="cover"
-              onLoadStart={handleMediaLoadStart}
-              onLoad={handleMediaLoad}
-              onError={handleMediaError}
+              contentFit="contain"
+              nativeControls={false}
+              onFirstFrameRender={handleMediaLoad}
             />
 
-            {/* IMAGE LOADING */}
+            {story.overlayText && story.overlayText.trim() ? (
+              <View
+                style={[
+                  styles.overlayTextContainer,
+                  {
+                    transform: [
+                      { translateX: story.overlayTextPosition?.x || 0 },
+                      { translateY: story.overlayTextPosition?.y || 0 },
+                      { scale: story.overlayTextScale || 1 },
+                    ],
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.overlayText,
+                    {
+                      color: story.overlayTextColor || "#FFFFFF",
+                      textAlign: story.overlayTextAlignment || "center",
+                      backgroundColor:
+                        story.overlayTextBackground || "transparent",
+                    },
+                  ]}
+                >
+                  {story.overlayText}
+                </Text>
+              </View>
+            ) : null}
 
             {mediaLoading ? (
               <View style={styles.mediaLoadingOverlay} pointerEvents="none">
@@ -1134,12 +1334,10 @@ export default function StoryViewerScreen() {
               </View>
             ) : null}
 
-            {/* IMAGE ERROR */}
-
             {mediaError ? (
               <View style={styles.mediaErrorOverlay} pointerEvents="none">
                 <View style={styles.mediaErrorIcon}>
-                  <Ionicons name="image-outline" size={32} color="#FFFFFF" />
+                  <Ionicons name="videocam-outline" size={32} color="#FFFFFF" />
                 </View>
 
                 <Text style={styles.mediaErrorTitle}>Story unavailable</Text>
@@ -1150,6 +1348,66 @@ export default function StoryViewerScreen() {
               </View>
             ) : null}
           </>
+        ) : story.uri ? (
+          <>
+            <Image
+              source={{
+                uri: story.uri,
+              }}
+              style={styles.media}
+              resizeMode="contain"
+              onLoadStart={handleMediaLoadStart}
+              onLoad={handleMediaLoad}
+              onError={handleMediaError}
+            />
+
+            {story.overlayText && story.overlayText.trim() ? (
+              <View
+                style={[
+                  styles.overlayTextContainer,
+                  {
+                    transform: [
+                      { translateX: story.overlayTextPosition?.x || 0 },
+                      { translateY: story.overlayTextPosition?.y || 0 },
+                      { scale: story.overlayTextScale || 1 },
+                    ],
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.overlayText,
+                    {
+                      color: story.overlayTextColor || "#FFFFFF",
+                      textAlign: story.overlayTextAlignment || "center",
+                      backgroundColor:
+                        story.overlayTextBackground || "transparent",
+                    },
+                  ]}
+                >
+                  {story.overlayText}
+                </Text>
+              </View>
+            ) : null}
+          </>
+        ) : isEmptyOwnStory ? (
+          <View style={styles.emptyOwnStory}>
+            {story.avatar ? (
+              <Image
+                source={{ uri: story.avatar }}
+                resizeMode="cover"
+                style={styles.emptyOwnStoryBg}
+              />
+            ) : (
+              <View style={styles.emptyOwnStoryOverlay} />
+            )}
+            <View style={styles.emptyOwnStoryContent}>
+              <View style={styles.addStoryButton}>
+                <Ionicons name="add" size={56} color="#FFFFFF" />
+              </View>
+              <Text style={styles.emptyOwnStoryText}>Add to your story</Text>
+            </View>
+          </View>
         ) : (
           <View style={styles.emptyStory}>
             <View style={styles.mediaErrorIcon}>
@@ -1213,65 +1471,79 @@ export default function StoryViewerScreen() {
         {/* HEADER */}
         {/* ---------------------------------------- */}
 
+        <View style={styles.headerOverlay} pointerEvents="none" />
+
         <View style={styles.header} pointerEvents="box-none">
           <View style={styles.userInfo}>
-            {story.avatar ? (
-              <Image
-                source={{
-                  uri: story.avatar,
-                }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>
-                  {story.username?.charAt(0)?.toUpperCase() || "U"}
-                </Text>
-              </View>
-            )}
+            <Pressable
+              onPress={handleClose}
+              hitSlop={14}
+              style={({ pressed }) => [
+                styles.headerBackButton,
+                pressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </Pressable>
+
+            <Pressable
+              onPress={isOwnStory ? handleAddStory : undefined}
+              style={styles.avatarWrapper}
+              disabled={!isOwnStory}
+              accessibilityRole="button"
+              accessibilityLabel={isOwnStory ? "Add Story" : undefined}
+            >
+              {isEmptyOwnStory && !story?.avatar ? (
+                <View style={styles.emptyAvatar} />
+              ) : hasRealAvatar ? (
+                <Image
+                  source={{
+                    uri: story.avatar,
+                  }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitial}>
+                    {story.username?.charAt(0)?.toUpperCase() || "U"}
+                  </Text>
+                </View>
+              )}
+
+              {isOwnStory ? (
+                <View style={styles.avatarAddBadge}>
+                  <Ionicons name="add" size={14} color="#FFFFFF" />
+                </View>
+              ) : null}
+            </Pressable>
 
             <View style={styles.userText}>
               <Text style={styles.username}>{story.username}</Text>
 
-              <Text style={styles.time}>Just now</Text>
+              <Text style={styles.time}>
+                {formatStoryTime(story.createdAt, now)}
+              </Text>
             </View>
           </View>
 
           {/* ------------------------------------ */}
-          {/* CLOSE BUTTON */}
+          {/* ACTIONS */}
           {/* ------------------------------------ */}
 
           <Pressable
-            onPress={handleClose}
+            onPress={openMore}
             hitSlop={14}
             style={({ pressed }) => [
-              styles.closeButton,
+              styles.headerActionButton,
               pressed && styles.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Close Story"
+            accessibilityLabel="More Story options"
           >
-            <Ionicons name="close" size={29} color="#FFFFFF" />
+            <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
           </Pressable>
-
-          {/* ------------------------------------ */}
-          {/* ADD STORY BUTTON (OWN STORIES) */}
-          {/* ------------------------------------ */}
-
-          {isOwnStory ? (
-            <Pressable
-              onPress={handleAddStory}
-              hitSlop={14}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed && styles.pressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Add Story"
-            >
-              <Ionicons name="add" size={29} color="#FFFFFF" />
-            </Pressable>
-          ) : null}
         </View>
 
         {/* ---------------------------------------- */}
@@ -1289,16 +1561,16 @@ export default function StoryViewerScreen() {
 
         <View style={styles.tapZones} pointerEvents="box-none">
           <Pressable
-            onPress={handleTapPrevious}
-            onLongPress={() => setPaused(true)}
+            onPressIn={handleLeftPressIn}
+            onPressOut={handleLeftPressOut}
             style={styles.leftZone}
             accessibilityRole="button"
             accessibilityLabel="Previous Story"
           />
 
           <Pressable
-            onPress={handleTapNext}
-            onLongPress={() => setPaused(true)}
+            onPressIn={handleRightPressIn}
+            onPressOut={handleRightPressOut}
             style={styles.rightZone}
             accessibilityRole="button"
             accessibilityLabel="Next Story"
@@ -1309,14 +1581,7 @@ export default function StoryViewerScreen() {
         {/* PAUSE INDICATOR */}
         {/* ---------------------------------------- */}
 
-        {paused &&
-        !commentInputVisible &&
-        !reactionModalVisible &&
-        !moreModalVisible ? (
-          <View style={styles.pauseIndicator} pointerEvents="none">
-            <Ionicons name="pause" size={28} color="#FFFFFF" />
-          </View>
-        ) : null}
+        {/* Removed */}
 
         {/* ---------------------------------------- */}
         {/* FLOATING REACTION */}
@@ -1458,68 +1723,118 @@ export default function StoryViewerScreen() {
                 <Text style={styles.menuText}>Share</Text>
               </Pressable>
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  pressed && styles.menuItemPressed,
-                ]}
-                onPress={handleHide}
-              >
-                <View style={styles.menuIcon}>
-                  <Ionicons name="eye-off-outline" size={19} color="#111111" />
-                </View>
-
-                <Text style={styles.menuText}>Hide</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  pressed && styles.menuItemPressed,
-                ]}
-                onPress={handleReport}
-              >
-                <View style={styles.menuIcon}>
-                  <Ionicons name="flag-outline" size={19} color="#111111" />
-                </View>
-
-                <Text style={styles.menuText}>Report</Text>
-              </Pressable>
-
               {isOwnStory ? (
-                <>
-                  <View style={styles.menuDivider} />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    pressed && styles.menuItemPressed,
+                  ]}
+                  onPress={handleDeleteStory}
+                >
+                  <View style={styles.menuIcon}>
+                    <Ionicons name="trash-outline" size={19} color="#D11A2A" />
+                  </View>
 
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.menuItem,
-                      pressed && styles.menuItemPressed,
-                    ]}
-                    onPress={handleDeleteStory}
-                  >
-                    <View style={styles.menuIcon}>
-                      <Ionicons
-                        name="trash-outline"
-                        size={19}
-                        color="#D11A2A"
-                      />
-                    </View>
-
-                    <Text style={[styles.menuText, styles.menuDangerText]}>
-                      Delete Story
-                    </Text>
-                  </Pressable>
-                </>
+                  <Text style={[styles.menuText, styles.menuDangerText]}>
+                    Delete Story
+                  </Text>
+                </Pressable>
               ) : null}
             </Animated.View>
           </>
         ) : null}
 
         {/* ---------------------------------------- */}
+        {/* VIEWERS MODAL */}
+        {/* ---------------------------------------- */}
+
+        {viewersModalVisible ? (
+          <Pressable style={styles.viewersDismissArea} onPress={closeViewers}>
+            <Animated.View style={styles.viewersModal}>
+              <View style={styles.viewersHandle} />
+
+              <Text style={styles.viewersTitle}>Viewers</Text>
+
+              <View style={styles.viewersList}>
+                {viewers.length === 0 ? (
+                  <View style={styles.viewersEmpty}>
+                    <Text style={styles.viewersEmptyText}>No viewers yet</Text>
+                  </View>
+                ) : (
+                  viewers.map((item, index) => {
+                    const name =
+                      item?.name ||
+                      item?.username ||
+                      item?.user?.username ||
+                      `Viewer ${index + 1}`;
+
+                    const avatar =
+                      item?.avatar ||
+                      item?.avatarUrl ||
+                      item?.user?.avatar ||
+                      null;
+
+                    const time = item?.viewedAt || item?.timestamp || null;
+
+                    return (
+                      <View
+                        key={item?.id || index}
+                        style={[
+                          styles.viewerItem,
+                          index > 0 && styles.viewerItemBorder,
+                        ]}
+                      >
+                        <View style={styles.viewerAvatarWrapper}>
+                          {avatar ? (
+                            <Image
+                              source={{ uri: avatar }}
+                              style={styles.viewerAvatar}
+                            />
+                          ) : (
+                            <View style={styles.viewerAvatarPlaceholder}>
+                              <Text style={styles.viewerAvatarInitial}>
+                                {String(name).charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={styles.viewerInfo}>
+                          <Text style={styles.viewerName}>{name}</Text>
+
+                          {(() => {
+                            const normalizedTime =
+                              typeof time === "number"
+                                ? time
+                                : typeof time === "string"
+                                  ? Number(time)
+                                  : Number.NaN;
+
+                            if (!Number.isFinite(normalizedTime)) {
+                              return null;
+                            }
+
+                            return (
+                              <Text style={styles.viewerTime}>
+                                {formatStoryTime(normalizedTime, now)}
+                              </Text>
+                            );
+                          })()}
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            </Animated.View>
+          </Pressable>
+        ) : null}
+
+        {/* ---------------------------------------- */}
         {/* REPLY INPUT */}
         {/* ---------------------------------------- */}
 
-        {commentInputVisible ? (
+        {!isOwnStory && commentInputVisible ? (
           <KeyboardAvoidingView
             style={styles.replyInputOverlay}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1572,56 +1887,72 @@ export default function StoryViewerScreen() {
         {/* ---------------------------------------- */}
 
         {!commentInputVisible ? (
-          <View style={styles.bottomArea}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.replyButton,
-                pressed && styles.pressed,
-              ]}
-              onPress={openComments}
-              accessibilityRole="button"
-              accessibilityLabel="Reply to Story"
-            >
-              <Ionicons name="chatbubble-outline" size={19} color="#FFFFFF" />
+          <>
+            <View style={styles.bottomOverlay} pointerEvents="none" />
 
-              <Text style={styles.replyText}>Reply</Text>
-            </Pressable>
+            <View style={styles.bottomArea}>
+              {isOwnStory ? (
+                <Pressable
+                  onPress={openViewers}
+                  style={({ pressed }) => [
+                    styles.viewersButton,
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Story viewers"
+                >
+                  <Ionicons name="eye-outline" size={20} color="#FFFFFF" />
 
-            <Pressable
-              onPress={openReactions}
-              style={({ pressed }) => [
-                styles.actionButton,
-                selectedReaction && styles.reactedButton,
-                pressed && styles.pressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="React to Story"
-            >
-              {selectedReaction ? (
-                <Text style={styles.bottomReaction}>
-                  {selectedReaction.emoji}
-                </Text>
+                  <Text style={styles.viewersText}>
+                    {formatCount(viewerCount)}
+                  </Text>
+                </Pressable>
               ) : (
-                <MaterialIcons
-                  name="insert-emoticon"
-                  size={23}
-                  color="#FFFFFF"
-                />
-              )}
-            </Pressable>
+                <>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.replyButton,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={openComments}
+                    accessibilityRole="button"
+                    accessibilityLabel="Reply to Story"
+                  >
+                    <Ionicons
+                      name="chatbubble-outline"
+                      size={19}
+                      color="#FFFFFF"
+                    />
 
-            <Pressable
-              onPress={openMore}
-              style={({ pressed }) => [
-                styles.actionButton,
-                pressed && styles.pressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="More Story options"
-            >
-              <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
-            </Pressable>
-          </View>
+                    <Text style={styles.replyText}>Reply</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={openReactions}
+                    style={({ pressed }) => [
+                      styles.actionButton,
+                      selectedReaction && styles.reactedButton,
+                      pressed && styles.pressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel="React to Story"
+                  >
+                    {selectedReaction ? (
+                      <Text style={styles.bottomReaction}>
+                        {selectedReaction.emoji}
+                      </Text>
+                    ) : (
+                      <MaterialCommunityIcons
+                        name="emoticon-outline"
+                        size={24}
+                        color="#FFFFFF"
+                      />
+                    )}
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </>
         ) : null}
       </SafeAreaView>
     </View>
@@ -1654,6 +1985,60 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#000000",
     paddingHorizontal: 30,
+  },
+
+  emptyOwnStory: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#1A1A2E",
+  },
+
+  emptyOwnStoryBg: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  emptyOwnStoryOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+
+  emptyOwnStoryContent: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 30,
+  },
+
+  addStoryButton: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    marginBottom: 16,
+  },
+
+  emptyOwnStoryText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  emptyAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#1A1A2E",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   mediaLoadingOverlay: {
@@ -1708,6 +2093,32 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontWeight: "800",
     textAlign: "center",
+  },
+
+  /* Overlay text (quotes on photo/video) */
+  overlayTextContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 5,
+    pointerEvents: "none",
+  },
+
+  overlayText: {
+    fontSize: 26,
+    lineHeight: 34,
+    fontWeight: "800",
+    textShadowColor: "rgba(0,0,0,0.6)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    includeFontPadding: false,
   },
 
   /*
@@ -1769,6 +2180,15 @@ const styles = StyleSheet.create({
     elevation: 100,
   },
 
+  headerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
@@ -1801,7 +2221,7 @@ const styles = StyleSheet.create({
   },
 
   userText: {
-    marginLeft: 10,
+    marginLeft: 4,
   },
 
   username: {
@@ -1825,6 +2245,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 110,
     elevation: 110,
+  },
+
+  headerBackButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+  },
+
+  headerActionButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  avatarWrapper: {
+    position: "relative",
+    marginRight: 8,
+  },
+
+  avatarAddBadge: {
+    position: "absolute",
+    right: -4,
+    bottom: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#2563EB",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#000000",
   },
 
   /*
@@ -2135,6 +2593,15 @@ const styles = StyleSheet.create({
     elevation: 150,
   },
 
+  bottomOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+
   replyButton: {
     flex: 1,
     height: 46,
@@ -2169,6 +2636,131 @@ const styles = StyleSheet.create({
 
   bottomReaction: {
     fontSize: 23,
+  },
+
+  viewersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.55)",
+  },
+
+  viewersText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  viewersDismissArea: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingHorizontal: 14,
+    paddingBottom: 28,
+  },
+
+  viewersModal: {
+    width: "100%",
+    maxHeight: height * 0.65,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 18,
+  },
+
+  viewersHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E7EB",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+
+  viewersTitle: {
+    color: "#111111",
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+
+  viewersList: {
+    maxHeight: height * 0.5,
+  },
+
+  viewersEmpty: {
+    paddingVertical: 28,
+    alignItems: "center",
+  },
+
+  viewersEmptyText: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  viewerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+  },
+
+  viewerItemBorder: {
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+
+  viewerAvatarWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
+
+  viewerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+
+  viewerAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  viewerAvatarInitial: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  viewerInfo: {
+    flex: 1,
+  },
+
+  viewerName: {
+    color: "#111111",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  viewerTime: {
+    color: "#9CA3AF",
+    fontSize: 12,
+    marginTop: 2,
   },
 
   pressed: {

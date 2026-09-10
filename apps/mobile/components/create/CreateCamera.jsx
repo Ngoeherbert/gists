@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
-  Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,18 +18,31 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
 const TEXT_COLORS = [
-  "#000000",
-  "#1D1D1F",
-  "#343434",
-  "#4A4A4A",
   "#FFFFFF",
+  "#FFD600",
+  "#FF6B00",
+  "#FF004D",
+  "#B026FF",
+  "#00C3FF",
+  "#00E676",
+  "#1D1D1F",
+  "#000000",
 ];
+
+const LIGHT_TEXT_COLORS = new Set([
+  "#FFFFFF",
+  "#FFD600",
+  "#FF6B00",
+  "#00C3FF",
+  "#00E676",
+]);
+
+const isLightTextColor = (index) => LIGHT_TEXT_COLORS.has(TEXT_COLORS[index]);
 
 export default function CreateCamera({
   onClose,
   onContinue,
   closeLabel = "Close",
-  continueLabel = "Next",
   modes = [
     { id: "photo", label: "Photo", icon: "camera-outline" },
     { id: "text", label: "Text", icon: "text-outline" },
@@ -37,9 +50,9 @@ export default function CreateCamera({
 }) {
   const cameraRef = useRef(null);
   const textInputRef = useRef(null);
+  const textScrollRef = useRef(null);
 
-  const [cameraPermission, requestCameraPermission] =
-    useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const [mode, setMode] = useState(modes[0]?.id || "photo");
   const [facing, setFacing] = useState("back");
@@ -47,9 +60,11 @@ export default function CreateCamera({
 
   const [text, setText] = useState("");
   const [textColorIndex, setTextColorIndex] = useState(0);
+  const [colorModalVisible, setColorModalVisible] = useState(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const hasCameraModes = modes.some(
     (item) => item.id === "photo" || item.id === "video" || item.id === "text",
@@ -68,6 +83,14 @@ export default function CreateCamera({
     textInputRef.current?.blur();
   };
 
+  const toggleKeyboard = () => {
+    if (textInputRef.current?.isFocused()) {
+      dismissKeyboard();
+    } else {
+      textInputRef.current?.focus();
+    }
+  };
+
   const handleClose = () => {
     dismissKeyboard();
 
@@ -84,9 +107,7 @@ export default function CreateCamera({
       return;
     }
 
-    setFacing((current) =>
-      current === "back" ? "front" : "back",
-    );
+    setFacing((current) => (current === "back" ? "front" : "back"));
   };
 
   const toggleFlash = () => {
@@ -98,23 +119,7 @@ export default function CreateCamera({
       return;
     }
 
-    setFlash((current) =>
-      current === "off" ? "on" : "off",
-    );
-  };
-
-  const handleEffects = () => {
-    Alert.alert(
-      "Effects",
-      "Story effects will be available here.",
-    );
-  };
-
-  const handleTimer = () => {
-    Alert.alert(
-      "Timer",
-      "Timer controls will be available here.",
-    );
+    setFlash((current) => (current === "off" ? "on" : "off"));
   };
 
   const switchMode = (nextMode) => {
@@ -138,8 +143,11 @@ export default function CreateCamera({
 
     setMode(nextMode);
 
-    if (nextMode !== "text") {
+    if (nextMode === "text") {
       setText("");
+      setTimeout(() => {
+        textInputRef.current?.focus();
+      }, 150);
     }
   };
 
@@ -158,37 +166,27 @@ export default function CreateCamera({
         return;
       }
 
-      const result =
-        await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images", "videos"],
-          allowsEditing: false,
-          quality: 1,
-        });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images", "videos"],
+        allowsEditing: false,
+        quality: 1,
+      });
 
-      if (
-        result.canceled ||
-        !result.assets?.length
-      ) {
+      if (result.canceled || !result.assets?.length) {
         return;
       }
 
       const asset = result.assets[0];
 
       onContinue?.({
-        type:
-          asset.type === "video"
-            ? "video"
-            : "image",
+        type: asset.type === "video" ? "video" : "image",
         uri: asset.uri,
         width: asset.width,
         height: asset.height,
         duration: asset.duration || null,
       });
     } catch (error) {
-      console.error(
-        "Story gallery error:",
-        error,
-      );
+      console.error("Story gallery error:", error);
 
       Alert.alert(
         "Unable to open gallery",
@@ -200,20 +198,16 @@ export default function CreateCamera({
   const takePhoto = async () => {
     dismissKeyboard();
 
-    if (
-      !cameraRef.current ||
-      isProcessing
-    ) {
+    if (!cameraRef.current || isProcessing) {
       return;
     }
 
     try {
       setIsProcessing(true);
 
-      const photo =
-        await cameraRef.current.takePictureAsync({
-          quality: 0.9,
-        });
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.9,
+      });
 
       if (!photo?.uri) {
         return;
@@ -226,15 +220,9 @@ export default function CreateCamera({
         height: photo.height,
       });
     } catch (error) {
-      console.error(
-        "Story photo error:",
-        error,
-      );
+      console.error("Story photo error:", error);
 
-      Alert.alert(
-        "Camera error",
-        "Unable to capture the photo.",
-      );
+      Alert.alert("Camera error", "Unable to capture the photo.");
     } finally {
       setIsProcessing(false);
     }
@@ -243,21 +231,16 @@ export default function CreateCamera({
   const startRecording = async () => {
     dismissKeyboard();
 
-    if (
-      !cameraRef.current ||
-      isRecording ||
-      isProcessing
-    ) {
+    if (!cameraRef.current || isRecording || isProcessing) {
       return;
     }
 
     try {
       setIsRecording(true);
 
-      const video =
-        await cameraRef.current.recordAsync({
-          maxDuration: 60,
-        });
+      const video = await cameraRef.current.recordAsync({
+        maxDuration: 60,
+      });
 
       if (video?.uri) {
         onContinue?.({
@@ -266,25 +249,16 @@ export default function CreateCamera({
         });
       }
     } catch (error) {
-      console.error(
-        "Story video error:",
-        error,
-      );
+      console.error("Story video error:", error);
 
-      Alert.alert(
-        "Camera error",
-        "Unable to record the video.",
-      );
+      Alert.alert("Camera error", "Unable to record the video.");
     } finally {
       setIsRecording(false);
     }
   };
 
   const stopRecording = () => {
-    if (
-      !cameraRef.current ||
-      !isRecording
-    ) {
+    if (!cameraRef.current || !isRecording) {
       return;
     }
 
@@ -308,130 +282,101 @@ export default function CreateCamera({
     }
   };
 
-  const handleTextColor = () => {
-    setTextColorIndex(
-      (current) =>
-        (current + 1) % TEXT_COLORS.length,
-    );
+  const openColorModal = () => {
+    dismissKeyboard();
+    setColorModalVisible(true);
   };
 
-  const handleContinue = () => {
-    dismissKeyboard();
+  const closeColorModal = () => {
+    setColorModalVisible(false);
+  };
 
-    if (mode === "text") {
-      if (!text.trim()) {
-        Alert.alert(
-          "Add some text",
-          "Write something before continuing.",
-        );
-        return;
-      }
+  const selectTextColor = (index) => {
+    setTextColorIndex(index);
+    setColorModalVisible(false);
+  };
 
-      onContinue?.({
-        type: "text",
-        text: text.trim(),
-        backgroundColor:
-          TEXT_COLORS[textColorIndex],
-      });
+  const getPlaceholderColor = () => {
+    if (isLightTextColor(textColorIndex)) {
+      return "#555555";
+    }
+    return "#AAAAAA";
+  };
+
+  const getCountColor = () => {
+    if (isLightTextColor(textColorIndex)) {
+      return "#555555";
+    }
+    return "#CCCCCC";
+  };
+
+  const handlePublishText = () => {
+    if (!text.trim()) {
       return;
     }
+
+    onContinue?.({
+      type: "text",
+      text: text.trim(),
+      backgroundColor: TEXT_COLORS[textColorIndex],
+    });
   };
 
   if (!cameraPermission) {
     return (
       <View style={styles.permissionScreen}>
-        <ActivityIndicator
-          size="small"
-          color="#FFFFFF"
-        />
+        <ActivityIndicator size="small" color="#FFFFFF" />
       </View>
     );
   }
 
   if (!cameraPermission.granted) {
     return (
-      <SafeAreaView
-        style={styles.permissionScreen}
-        edges={["top", "bottom"]}
-      >
+      <SafeAreaView style={styles.permissionScreen} edges={["top", "bottom"]}>
         <View style={styles.permissionContent}>
           <View style={styles.permissionIcon}>
-            <Ionicons
-              name="camera-outline"
-              size={38}
-              color="#FFFFFF"
-            />
+            <Ionicons name="camera-outline" size={38} color="#FFFFFF" />
           </View>
 
-          <Text style={styles.permissionTitle}>
-            Camera access is needed
-          </Text>
+          <Text style={styles.permissionTitle}>Camera access is needed</Text>
 
           <Text style={styles.permissionText}>
-            Allow camera access to create
-            photo and video Stories.
+            Allow camera access to create photo and video Stories.
           </Text>
 
           <Pressable
             onPress={requestCameraPermission}
             style={({ pressed }) => [
               styles.permissionButton,
-              pressed &&
-                styles.buttonPressed,
+              pressed && styles.buttonPressed,
             ]}
           >
-            <Text
-              style={
-                styles.permissionButtonText
-              }
-            >
-              Allow camera
-            </Text>
+            <Text style={styles.permissionButtonText}>Allow camera</Text>
           </Pressable>
 
           <Pressable
             onPress={openGallery}
             style={({ pressed }) => [
               styles.galleryFallbackButton,
-              pressed &&
-                styles.buttonPressed,
+              pressed && styles.buttonPressed,
             ]}
           >
-            <Ionicons
-              name="images-outline"
-              size={19}
-              color="#FFFFFF"
-            />
+            <Ionicons name="images-outline" size={19} color="#FFFFFF" />
 
-            <Text
-              style={styles.galleryFallbackText}
-            >
-              Choose from gallery
-            </Text>
+            <Text style={styles.galleryFallbackText}>Choose from gallery</Text>
           </Pressable>
 
-          <Pressable
-            onPress={handleClose}
-            style={styles.cancelButton}
-          >
-            <Text style={styles.cancelText}>
-              {closeLabel}
-            </Text>
+          <Pressable onPress={handleClose} style={styles.cancelButton}>
+            <Text style={styles.cancelText}>{closeLabel}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const isCameraMode =
-    cameraMode === "photo" || cameraMode === "video";
+  const isCameraMode = cameraMode === "photo" || cameraMode === "video";
 
   const isTextMode = cameraMode === "text";
-
-  const canContinue =
-    mode === "text"
-      ? Boolean(text.trim())
-      : true;
 
   return (
     <View style={styles.container}>
@@ -442,11 +387,7 @@ export default function CreateCamera({
           style={StyleSheet.absoluteFill}
           facing={facing}
           flash={flash}
-          mode={
-            mode === "video"
-              ? "video"
-              : "picture"
-          }
+          mode={mode === "video" ? "video" : "picture"}
         />
       ) : null}
 
@@ -456,240 +397,217 @@ export default function CreateCamera({
           style={[
             styles.textCanvas,
             {
-              backgroundColor:
-                TEXT_COLORS[
-                  textColorIndex
-                ],
+              backgroundColor: TEXT_COLORS[textColorIndex],
             },
           ]}
         >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={dismissKeyboard}
-          />
+          <Pressable style={StyleSheet.absoluteFill} onPress={toggleKeyboard} />
 
-          <TextInput
-            ref={textInputRef}
-            value={text}
-            onChangeText={setText}
-            placeholder="Type a Story..."
-            placeholderTextColor={
-              textColorIndex ===
-              TEXT_COLORS.length - 1
-                ? "#777777"
-                : "#AAAAAA"
-            }
-            multiline
-            autoFocus
-            textAlign="center"
-            maxLength={500}
-            style={[
-              styles.textInput,
-              textColorIndex ===
-                TEXT_COLORS.length - 1 && {
-                color: "#000000",
-              },
-            ]}
-          />
-
-          <View
-            style={styles.textCharacterCount}
+          <ScrollView
+            ref={textScrollRef}
+            contentContainerStyle={styles.textScrollContent}
           >
-            <Text
+            <TextInput
+              ref={textInputRef}
+              value={text}
+              onChangeText={setText}
+              placeholder="Type a Story..."
+              placeholderTextColor={getPlaceholderColor()}
+              multiline
+              autoFocus
+              textAlign="center"
+              maxLength={500}
+              onFocus={() => setKeyboardVisible(true)}
+              onBlur={() => setKeyboardVisible(false)}
               style={[
-                styles.textCharacterCountText,
-                textColorIndex ===
-                  TEXT_COLORS.length - 1 && {
-                  color: "#555555",
+                styles.textInput,
+                isLightTextColor(textColorIndex) && {
+                  color: "#000000",
                 },
               ]}
-            >
-              {text.length}/500
-            </Text>
-          </View>
+            />
+          </ScrollView>
         </View>
       ) : null}
 
-      <SafeAreaView
-        style={styles.overlay}
-        edges={["top", "bottom"]}
-      >
+      <SafeAreaView style={styles.overlay} edges={["top", "bottom"]}>
         {/* HEADER */}
         <View style={styles.topBar}>
           <Pressable
             onPress={handleClose}
             style={({ pressed }) => [
               styles.topButton,
-              pressed &&
-                styles.topButtonPressed,
+              pressed && styles.topButtonPressed,
             ]}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={`${closeLabel} creator`}
           >
-            <Ionicons
-              name="close"
-              size={28}
-              color="#FFFFFF"
-            />
+            <Ionicons name="close" size={28} color="#FFFFFF" />
           </Pressable>
 
-          <View style={styles.topRight}>
-            {isTextMode ? (
-              <Pressable
-                onPress={handleTextColor}
-                style={({ pressed }) => [
-                  styles.colorButton,
-                  pressed &&
-                    styles.topButtonPressed,
+          {isTextMode ? (
+            <View style={styles.textCountBadge}>
+              <Text
+                style={[
+                  styles.textCountText,
+                  isLightTextColor(textColorIndex) && {
+                    color: getCountColor(),
+                  },
                 ]}
               >
-                <View
-                  style={[
-                    styles.colorDot,
-                    {
-                      backgroundColor:
-                        TEXT_COLORS[
-                          textColorIndex
-                        ],
-                    },
-                  ]}
-                />
+                {text.length}/500
+              </Text>
+            </View>
+          ) : null}
 
+          <View style={styles.topRight}>
+            {!isTextMode ? (
+              <Pressable
+                onPress={toggleFlash}
+                style={({ pressed }) => [
+                  styles.flashButton,
+                  pressed && styles.topButtonPressed,
+                ]}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Toggle flash"
+              >
                 <Ionicons
-                  name="color-palette-outline"
-                  size={21}
+                  name={flash === "on" ? "flash" : "flash-off-outline"}
+                  size={22}
                   color="#FFFFFF"
                 />
               </Pressable>
             ) : null}
 
-            {canContinue ? (
-              <Pressable
-                onPress={handleContinue}
-                style={({ pressed }) => [
-                  styles.headerNextButton,
-                  pressed &&
-                    styles.headerNextPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={continueLabel}
-              >
-                <Text
-                  style={styles.headerNextText}
+            {isTextMode ? (
+              keyboardVisible ? (
+                <Pressable
+                  onPress={openColorModal}
+                  style={({ pressed }) => [
+                    styles.colorButton,
+                    pressed && styles.topButtonPressed,
+                  ]}
                 >
-                  {continueLabel}
-                </Text>
+                  <View
+                    style={[
+                      styles.colorDot,
+                      {
+                        backgroundColor: TEXT_COLORS[textColorIndex],
+                      },
+                    ]}
+                  />
 
-                <Ionicons
-                  name="arrow-forward"
-                  size={16}
-                  color="#000000"
-                />
-              </Pressable>
+                  <Ionicons
+                    name="color-palette-outline"
+                    size={21}
+                    color="#FFFFFF"
+                  />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={handlePublishText}
+                  style={({ pressed }) => [
+                    styles.publishButton,
+                    pressed && styles.topButtonPressed,
+                  ]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue to Story settings"
+                >
+                  <Ionicons name="checkmark" size={22} color="#000000" />
+                </Pressable>
+              )
             ) : null}
           </View>
         </View>
 
         {/* MODE SELECTOR */}
-        <View style={styles.modeSelector}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.modeSelector}
+          contentContainerStyle={styles.modeSelectorScroll}
+        >
           {modes.map((item) => {
-            const active =
-              item.id === mode;
+            const active = item.id === mode;
 
             return (
               <Pressable
                 key={item.id}
-                onPress={() =>
-                  switchMode(item.id)
-                }
-                style={({
-                  pressed,
-                }) => [
+                onPress={() => switchMode(item.id)}
+                style={({ pressed }) => [
                   styles.modeItem,
-                  active &&
-                    styles.modeItemActive,
-                  pressed &&
-                    styles.modeItemPressed,
+                  active && styles.modeItemActive,
+                  pressed && styles.modeItemPressed,
                 ]}
                 hitSlop={4}
                 accessibilityRole="button"
                 accessibilityState={{
                   selected: active,
-                  }}
-                  accessibilityLabel={`${closeLabel} ${item.label} mode`}
-                >
-                  <Ionicons
-                    name={item.icon}
-                    size={16}
-                    color={
-                      active
-                        ? "#FFFFFF"
-                        : "rgba(255,255,255,0.62)"
-                    }
-                  />
-
-                  <Text
-                    style={[
-                      styles.modeText,
-                      active &&
-                        styles.modeTextActive,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-        {/* SIDE CONTROLS */}
-        {isCameraMode ? (
-          <View
-            style={styles.sideControls}
-          >
-            <Pressable
-              style={({ pressed }) => [
-                styles.sideButton,
-                pressed &&
-                  styles.sideButtonPressed,
-              ]}
-              onPress={toggleFlash}
-            >
-              <View
-                style={[
-                  styles.sideIcon,
-                  flash === "on" &&
-                    styles.sideIconActive,
-                ]}
+                }}
+                accessibilityLabel={`${closeLabel} ${item.label} mode`}
               >
                 <Ionicons
-                  name={
-                    flash === "on"
-                      ? "flash"
-                      : "flash-off-outline"
-                  }
-                  size={22}
-                  color="#FFFFFF"
+                  name={item.icon}
+                  size={16}
+                  color={active ? "#FFFFFF" : "rgba(255,255,255,0.62)"}
                 />
+
+                <Text
+                  style={[styles.modeText, active && styles.modeTextActive]}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* CAMERA BOTTOM CONTROLS */}
+        {isCameraMode ? (
+          <View style={styles.bottomControls}>
+            <Pressable
+              onPress={openGallery}
+              style={({ pressed }) => [
+                styles.galleryButton,
+                pressed && styles.galleryButtonPressed,
+              ]}
+            >
+              <View style={styles.galleryPreview}>
+                <Ionicons name="images-outline" size={22} color="#FFFFFF" />
               </View>
 
-              <Text
-                style={styles.sideLabel}
-              >
-                Flash
-              </Text>
+              <Text style={styles.bottomLabel}>Gallery</Text>
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [
-                styles.sideButton,
-                pressed &&
-                  styles.sideButtonPressed,
+              onPress={handleCapture}
+              onLongPress={mode === "video" ? startRecording : undefined}
+              delayLongPress={250}
+              style={[
+                styles.captureButton,
+                isRecording && styles.captureButtonRecording,
               ]}
-              onPress={toggleCamera}
+              disabled={isProcessing}
             >
-              <View style={styles.sideIcon}>
+              <View
+                style={[
+                  styles.captureInner,
+                  isRecording && styles.captureInnerRecording,
+                ]}
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={toggleCamera}
+              style={({ pressed }) => [
+                styles.flipButton,
+                pressed && styles.flipButtonPressed,
+              ]}
+            >
+              <View style={styles.flipIcon}>
                 <Ionicons
                   name="camera-reverse-outline"
                   size={23}
@@ -697,131 +615,72 @@ export default function CreateCamera({
                 />
               </View>
 
-              <Text
-                style={styles.sideLabel}
-              >
-                Flip
-              </Text>
+              <Text style={styles.bottomLabel}>Flip</Text>
             </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.sideButton,
-                pressed &&
-                  styles.sideButtonPressed,
-              ]}
-              onPress={handleEffects}
-            >
-              <View style={styles.sideIcon}>
-                <Ionicons
-                  name="sparkles-outline"
-                  size={23}
-                  color="#FFFFFF"
-                />
-              </View>
-
-              <Text
-                style={styles.sideLabel}
-              >
-                Effects
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.sideButton,
-                pressed &&
-                  styles.sideButtonPressed,
-              ]}
-              onPress={handleTimer}
-            >
-              <View style={styles.sideIcon}>
-                <Ionicons
-                  name="timer-outline"
-                  size={23}
-                  color="#FFFFFF"
-                />
-              </View>
-
-              <Text
-                style={styles.sideLabel}
-              >
-                Timer
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-
-        {/* CAMERA BOTTOM CONTROLS */}
-        {isCameraMode ? (
-          <View
-            style={styles.bottomControls}
-          >
-            <Pressable
-              onPress={openGallery}
-              style={({ pressed }) => [
-                styles.galleryButton,
-                pressed &&
-                  styles.galleryButtonPressed,
-              ]}
-            >
-              <View
-                style={styles.galleryPreview}
-              >
-                <Ionicons
-                  name="images-outline"
-                  size={22}
-                  color="#FFFFFF"
-                />
-              </View>
-
-              <Text
-                style={styles.bottomLabel}
-              >
-                Gallery
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleCapture}
-              onLongPress={
-                mode === "video"
-                  ? startRecording
-                  : undefined
-              }
-              delayLongPress={250}
-              style={[
-                styles.captureButton,
-                isRecording &&
-                  styles.captureButtonRecording,
-              ]}
-              disabled={isProcessing}
-            >
-              <View
-                style={[
-                  styles.captureInner,
-                  isRecording &&
-                    styles.captureInnerRecording,
-                ]}
-              />
-            </Pressable>
-
-            <View
-              style={styles.galleryButtonSpacer}
-            />
           </View>
         ) : null}
 
         {/* PROCESSING */}
         {isProcessing ? (
-          <View
-            style={styles.processingOverlay}
-          >
-            <ActivityIndicator
-              size="large"
-              color="#FFFFFF"
-            />
+          <View style={styles.processingOverlay}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
           </View>
+        ) : null}
+
+        {/* COLOR MODAL */}
+        {colorModalVisible ? (
+          <Pressable
+            style={styles.colorModalDismissArea}
+            onPress={closeColorModal}
+          >
+            <View style={styles.colorModal}>
+              <View style={styles.colorModalHandle} />
+
+              <Text style={styles.colorModalTitle}>Background color</Text>
+
+              <View style={styles.colorModalGrid}>
+                {TEXT_COLORS.map((color, index) => {
+                  const isSelected = textColorIndex === index;
+
+                  return (
+                    <Pressable
+                      key={color}
+                      onPress={() => selectTextColor(index)}
+                      style={[
+                        styles.colorModalItem,
+                        isSelected && styles.colorModalItemSelected,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.colorModalSwatch,
+                          {
+                            backgroundColor: color,
+                          },
+                          color === "#FFFFFF" && {
+                            borderWidth: 1,
+                            borderColor: "#E5E7EB",
+                          },
+                        ]}
+                      >
+                        {isSelected && (
+                          <Ionicons
+                            name="checkmark"
+                            size={18}
+                            color={
+                              TEXT_COLORS[index] === "#FFFFFF"
+                                ? "#000000"
+                                : "#FFFFFF"
+                            }
+                          />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </Pressable>
         ) : null}
       </SafeAreaView>
     </View>
@@ -847,8 +706,7 @@ const styles = StyleSheet.create({
   topBar: {
     width: "100%",
     paddingHorizontal: 16,
-    paddingTop:
-      Platform.OS === "android" ? 8 : 0,
+    paddingTop: Platform.OS === "android" ? 8 : 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -858,8 +716,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor:
-      "rgba(0,0,0,0.38)",
+    backgroundColor: "rgba(0,0,0,0.38)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -873,10 +730,48 @@ const styles = StyleSheet.create({
     ],
   },
 
+  flashButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.38)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   topRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+
+  publishButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  textCountBadge: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+  },
+
+  textCountText: {
+    color: "#CCCCCC",
+    fontSize: 11,
+    fontWeight: "600",
+    backgroundColor: "rgba(0,0,0,0.25)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    overflow: "hidden",
   },
 
   colorButton: {
@@ -884,8 +779,7 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 9,
     borderRadius: 20,
-    backgroundColor:
-      "rgba(0,0,0,0.38)",
+    backgroundColor: "rgba(0,0,0,0.38)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -900,46 +794,23 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
 
-  headerNextButton: {
-    height: 40,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-
-  headerNextPressed: {
-    opacity: 0.75,
-    transform: [
-      {
-        scale: 0.96,
-      },
-    ],
-  },
-
-  headerNextText: {
-    color: "#000000",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-
   modeSelector: {
-    alignSelf: "center",
-    height: 42,
-    marginTop: 8,
-    padding: 2,
-    borderRadius: 22,
-    backgroundColor:
-      "rgba(0,0,0,0.52)",
-    borderWidth: 1,
-    borderColor:
-      "rgba(255,255,255,0.18)",
-    flexDirection: "row",
-    alignItems: "center",
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 160,
     zIndex: 20,
+    paddingHorizontal: 16,
+  },
+
+  modeSelectorScroll: {
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    alignSelf: "center",
+    paddingHorizontal: 6,
   },
 
   modeItem: {
@@ -954,11 +825,9 @@ const styles = StyleSheet.create({
   },
 
   modeItemActive: {
-    backgroundColor:
-      "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(255,255,255,0.22)",
     borderWidth: 1,
-    borderColor:
-      "rgba(255,255,255,0.35)",
+    borderColor: "rgba(255,255,255,0.35)",
   },
 
   modeItemPressed: {
@@ -971,8 +840,7 @@ const styles = StyleSheet.create({
   },
 
   modeText: {
-    color:
-      "rgba(255,255,255,0.62)",
+    color: "rgba(255,255,255,0.62)",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -980,63 +848,6 @@ const styles = StyleSheet.create({
   modeTextActive: {
     color: "#FFFFFF",
     fontWeight: "800",
-  },
-
-  sideControls: {
-    position: "absolute",
-    right: 14,
-    top: 126,
-    alignItems: "center",
-    gap: 18,
-    zIndex: 15,
-  },
-
-  sideButton: {
-    width: 58,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  sideButtonPressed: {
-    opacity: 0.65,
-    transform: [
-      {
-        scale: 0.94,
-      },
-    ],
-  },
-
-  sideIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor:
-      "rgba(0,0,0,0.42)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  sideIconActive: {
-    backgroundColor:
-      "rgba(255,255,255,0.2)",
-    borderWidth: 1,
-    borderColor:
-      "rgba(255,255,255,0.45)",
-  },
-
-  sideLabel: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "600",
-    marginTop: 5,
-    textAlign: "center",
-    textShadowColor:
-      "rgba(0,0,0,0.7)",
-    textShadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    textShadowRadius: 3,
   },
 
   bottomControls: {
@@ -1068,11 +879,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 13,
-    backgroundColor:
-      "rgba(0,0,0,0.48)",
+    backgroundColor: "rgba(0,0,0,0.48)",
     borderWidth: 1,
-    borderColor:
-      "rgba(255,255,255,0.5)",
+    borderColor: "rgba(255,255,255,0.5)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1082,8 +891,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     marginTop: 5,
-    textShadowColor:
-      "rgba(0,0,0,0.6)",
+    textShadowColor: "rgba(0,0,0,0.6)",
     textShadowOffset: {
       width: 0,
       height: 1,
@@ -1091,8 +899,29 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
 
-  galleryButtonSpacer: {
+  flipButton: {
     width: 64,
+    alignItems: "center",
+  },
+
+  flipButtonPressed: {
+    opacity: 0.65,
+    transform: [
+      {
+        scale: 0.95,
+      },
+    ],
+  },
+
+  flipIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.48)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   captureButton: {
@@ -1101,8 +930,7 @@ const styles = StyleSheet.create({
     borderRadius: 39,
     backgroundColor: "#FFFFFF",
     borderWidth: 5,
-    borderColor:
-      "rgba(255,255,255,0.45)",
+    borderColor: "rgba(255,255,255,0.45)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1135,6 +963,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
 
+  textScrollContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 30,
+  },
+
   textInput: {
     width: "100%",
     maxHeight: 300,
@@ -1146,29 +981,10 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  textCharacterCount: {
-    position: "absolute",
-    bottom: 128,
-    alignSelf: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor:
-      "rgba(0,0,0,0.2)",
-    zIndex: 3,
-  },
-
-  textCharacterCountText: {
-    color: "#CCCCCC",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
-    backgroundColor:
-      "rgba(0,0,0,0.25)",
+    backgroundColor: "rgba(0,0,0,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1259,5 +1075,64 @@ const styles = StyleSheet.create({
 
   buttonPressed: {
     opacity: 0.75,
+  },
+
+  colorModalDismissArea: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+  },
+
+  colorModal: {
+    width: "100%",
+    backgroundColor: "#111111d2",
+    borderRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+  },
+
+  colorModalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E7EB",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+
+  colorModalTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: 14,
+    textAlign: "center",
+  },
+
+  colorModalGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "center",
+  },
+
+  colorModalItem: {
+    width: 72,
+    alignItems: "center",
+  },
+
+  colorModalItemSelected: {
+    transform: [{ scale: 1.05 }],
+  },
+
+  colorModalSwatch: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -14,7 +14,7 @@ export const useReelStore = create((set) => ({
 
   addReel: (reel) =>
     set((state) => ({
-      reels: [...state.reels, reel],
+      reels: [reel, ...state.reels],
     })),
 
   updateReel: (reelId, updates) =>

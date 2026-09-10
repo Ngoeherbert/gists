@@ -32,6 +32,16 @@ export default function StoryBar({
     .map((storyGroup) => {
       const firstStory = storyGroup[0];
 
+      // Get story media from the first story in the group.
+      const storyMediaUri =
+        firstStory?.mediaUrl ||
+        firstStory?.storyImage ||
+        firstStory?.storyUri ||
+        firstStory?.image ||
+        firstStory?.uri ||
+        firstStory?.media?.uri ||
+        firstStory?.media?.url;
+
       return {
         ...firstStory,
 
@@ -40,6 +50,13 @@ export default function StoryBar({
 
         // Stable ID for the avatar.
         id: `user-${firstStory.userId}`,
+
+        // Story media for the ring background.
+        storyUri: storyMediaUri,
+
+        type: firstStory?.type,
+        text: firstStory?.text,
+        backgroundColor: firstStory?.backgroundColor,
       };
     })
     // Exclude the current user's own group; it is rendered
@@ -53,6 +70,15 @@ export default function StoryBar({
 
   const ownFirstStory = ownStoryGroup[0] || {};
 
+  const ownStoryMediaUri =
+    ownFirstStory?.mediaUrl ||
+    ownFirstStory?.storyImage ||
+    ownFirstStory?.storyUri ||
+    ownFirstStory?.image ||
+    ownFirstStory?.uri ||
+    ownFirstStory?.media?.uri ||
+    ownFirstStory?.media?.url;
+
   const items = [
     {
       id: "my-story",
@@ -60,6 +86,10 @@ export default function StoryBar({
       ...ownFirstStory,
       isOwn: true,
       storyGroup: ownStoryGroup,
+      storyUri: ownStoryMediaUri,
+      type: ownFirstStory?.type,
+      text: ownFirstStory?.text,
+      backgroundColor: ownFirstStory?.backgroundColor,
     },
     ...userStories,
   ];
@@ -74,7 +104,7 @@ export default function StoryBar({
         contentContainerStyle={styles.content}
         renderItem={({ item }) => (
           <StoryAvatar
-            uri={item.avatar || item.photo || item.profilePhoto}
+            uri={item.storyUri}
             avatarUri={
               item.avatar ||
               item.photo ||
@@ -85,13 +115,13 @@ export default function StoryBar({
             name={item.name || item.username}
             viewed={item.viewed}
             isOwn={item.isOwn}
-            onDelete={
-              item.isOwn ? () => onStoryDelete?.(item) : undefined
-            }
+            type={item.type}
+            text={item.text}
+            backgroundColor={item.backgroundColor}
+            onDelete={item.isOwn ? () => onStoryDelete?.(item) : undefined}
             onPress={() => {
               if (item.isOwn) {
                 if (item.storyGroup && item.storyGroup.length > 0) {
-                  // The user already has stories; open the viewer.
                   onStoryPress?.({
                     ...item,
                     stories: item.storyGroup,
@@ -99,12 +129,10 @@ export default function StoryBar({
                   return;
                 }
 
-                // No stories yet; open the creator.
                 onCreateStory?.();
                 return;
               }
 
-              // Pass the grouped user stories.
               onStoryPress?.({
                 ...item,
                 stories: item.storyGroup,

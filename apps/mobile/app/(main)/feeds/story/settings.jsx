@@ -15,6 +15,11 @@ export default function StorySettingsScreen() {
     : params.backgroundColor;
 
   const handleBack = () => {
+    if (type === "text") {
+      router.back();
+      return;
+    }
+
     router.replace("/(main)/feeds/story/edit");
   };
 
@@ -27,19 +32,53 @@ export default function StorySettingsScreen() {
      * FeedsScreen reads `publishedStory` and
      * prepends it to its story list.
      */
+    const publishedStory = {
+      id: `story-${Date.now()}`,
+      userId: params.userId || "user-001",
+      username: params.username || "herbert237",
+      avatar: params.avatar || "",
+      uri: uri || null,
+      type: type || "image",
+      text: text || "",
+      backgroundColor: backgroundColor || "#000000",
+      createdAt: params.createdAt ? Number(params.createdAt) : Date.now(),
+      // Overlay text (quote added on the edit screen)
+      overlayText: params.overlayText || "",
+      overlayTextColor: params.overlayTextColor || "#FFFFFF",
+      overlayTextAlignment: params.overlayTextAlignment || "center",
+      overlayTextBackground: params.overlayTextBackground || "transparent",
+      overlayTextPosition: (() => {
+        try {
+          const parsed =
+            typeof params.overlayTextPosition === "string"
+              ? JSON.parse(params.overlayTextPosition)
+              : params.overlayTextPosition;
+          return parsed || { x: 0, y: 0 };
+        } catch {
+          return { x: 0, y: 0 };
+        }
+      })(),
+      overlayTextScale: params.overlayTextScale
+        ? Number(params.overlayTextScale)
+        : 1,
+    };
+
+    if (params.trimStart !== undefined) {
+      publishedStory.trimStart = Number(params.trimStart);
+    }
+
+    if (params.trimEnd !== undefined) {
+      publishedStory.trimEnd = Number(params.trimEnd);
+    }
+
+    if (params.trimDuration !== undefined) {
+      publishedStory.trimDuration = Number(params.trimDuration);
+    }
+
     router.replace({
       pathname: "/(main)/feeds",
       params: {
-        publishedStory: JSON.stringify({
-          id: `story-${Date.now()}`,
-          userId: params.userId || "user-001",
-          username: params.username || "herbert237",
-          avatar: params.avatar || "",
-          uri: uri || null,
-          type: type || "image",
-          text: text || "",
-          backgroundColor: backgroundColor || "#000000",
-        }),
+        publishedStory: JSON.stringify(publishedStory),
       },
     });
   };
