@@ -96,6 +96,8 @@ export default function MessageInput({
 
         {pollAction && (
           <Pressable
+            accessibilityLabel="Create poll"
+            accessibilityRole="button"
             onPress={pollAction}
             disabled={disabled}
             hitSlop={8}
