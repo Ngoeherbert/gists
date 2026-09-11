@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, SafeAreaView, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useRouter, useLocalSearchParams } from "expo-router";
 
@@ -734,7 +735,7 @@ export default function FeedsScreen() {
    */
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <FeedHeader
         title="Gist Socials"
         onSearch={handleSearch}

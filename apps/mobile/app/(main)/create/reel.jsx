@@ -1,28 +1,22 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 
-import useReelStore from "../../../stores/reelStore";
-import useAuthStore from "../../../stores/authStore";
+import { useReelStore } from "../../../stores/reelStore";
+import { useAuthStore } from "../../../stores/authStore";
 
 import ReelComposer from "../../../components/create/ReelComposer";
-import CaptionInput from "../../../components/create/CaptionInput";
-import HashtagInput from "../../../components/create/HashtagInput";
-import MediaPreview from "../../../components/create/MediaPreview";
+import { currentUser as DUMMY_USER } from "../../../features/posts/dummyData";
 
 export default function CreateReelScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const addReel = useReelStore((state) => state.addReel);
-  const currentUser = useAuthStore((state) => state.user) || {
-    id: "user-001",
-    name: "Ngoe Herbert",
-    username: "herbert237",
-    avatar: "https://i.pravatar.cc/150?img=12",
-  };
+  const authUser = useAuthStore((state) => state.user);
+  const currentUser = authUser || DUMMY_USER;
 
   const [media, setMedia] = useState(null);
   const [caption, setCaption] = useState("");

@@ -11,8 +11,9 @@ export default function CommentCard({
   comment,
   onLike,
   onReply,
-  onMore,
+  onLongPress,
   onViewReplies,
+  onUserPress,
   currentUserId,
 }) {
   const [liked, setLiked] = useState(Boolean(comment?.liked));
@@ -39,19 +40,27 @@ export default function CommentCard({
   };
 
   return (
-    <View style={styles.container}>
-      <Avatar
-        uri={user?.avatar || user?.avatarUrl}
-        name={user?.name || user?.username || "User"}
-        size={42}
-      />
+    <Pressable
+      onLongPress={() => onLongPress?.(comment)}
+      style={styles.container}
+    >
+      <Pressable
+        onPress={() => onUserPress?.(comment)}
+        hitSlop={6}
+        style={styles.avatarWrap}
+      >
+        <Avatar
+          uri={user?.avatar || user?.avatarUrl}
+          name={user?.name || user?.username || "User"}
+          size={42}
+        />
+      </Pressable>
 
       <View style={styles.content}>
         <CommentHeader
           comment={comment}
           user={user}
           isOwnComment={isOwnComment}
-          onMore={() => onMore?.(comment)}
         />
 
         <Text style={styles.text}>{text}</Text>
@@ -61,7 +70,7 @@ export default function CommentCard({
           likeCount={likeCount}
           onLike={handleLike}
           onReply={handleReply}
-          onMore={() => onMore?.(comment)}
+          showMore={false}
         />
 
         {repliesCount > 0 && (
@@ -71,7 +80,7 @@ export default function CommentCard({
           />
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -81,6 +90,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 12,
+  },
+  avatarWrap: {
+    alignSelf: "flex-start",
   },
   content: {
     flex: 1,

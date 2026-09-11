@@ -3,8 +3,11 @@ import { create } from "zustand";
 export const useReelStore = create((set) => ({
   reels: [],
   activeReelId: null,
-  isPlaying: false,
+  isPlaying: true,
   isMuted: false,
+  // When enabled the feed auto-advances to the next reel as soon as the
+  // current reel's playback finishes.
+  autoSkip: false,
   progress: 0,
   duration: 0,
   isLoading: false,
@@ -42,6 +45,13 @@ export const useReelStore = create((set) => ({
       isPlaying: !state.isPlaying,
     })),
 
+  setAutoSkip: (autoSkip) => set({ autoSkip }),
+
+  toggleAutoSkip: () =>
+    set((state) => ({
+      autoSkip: !state.autoSkip,
+    })),
+
   setMuted: (isMuted) => set({ isMuted }),
 
   toggleMuted: () =>
@@ -59,7 +69,7 @@ export const useReelStore = create((set) => ({
   resetPlayback: () =>
     set({
       activeReelId: null,
-      isPlaying: false,
+      isPlaying: true,
       progress: 0,
       duration: 0,
     }),
@@ -72,8 +82,9 @@ export const useReelStore = create((set) => ({
     set({
       reels: [],
       activeReelId: null,
-      isPlaying: false,
+      isPlaying: true,
       isMuted: false,
+      autoSkip: false,
       progress: 0,
       duration: 0,
       isLoading: false,

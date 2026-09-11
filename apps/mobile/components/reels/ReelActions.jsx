@@ -30,6 +30,7 @@ export default function ReelActions({
   onRepost,
   onShare,
   onSave,
+  onMore,
 }) {
   return (
     <View style={styles.container}>
@@ -75,6 +76,14 @@ export default function ReelActions({
           color="#FFFFFF"
         />
       </Pressable>
+
+      <Pressable
+        onPress={onMore}
+        hitSlop={7}
+        style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+      >
+        <Ionicons name="ellipsis-horizontal" size={27} color="#FFFFFF" />
+      </Pressable>
     </View>
   );
 }
@@ -82,21 +91,28 @@ export default function ReelActions({
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
-    gap: 17,
+    gap: 16,
+    paddingRight: 2,
   },
   action: {
-    minWidth: 42,
-    minHeight: 42,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(18,18,18,0.46)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
   },
   count: {
     marginTop: 2,
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "700",
+    letterSpacing: 0.1,
   },
   pressed: {
-    opacity: 0.6,
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
   },
 });

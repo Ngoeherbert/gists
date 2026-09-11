@@ -1,5 +1,6 @@
 import React from "react";
 import { Tabs } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomTabBar from "../../components/navigation/BottomTabBar";
 
 // Bottom navigation is rendered ONLY on these exact
@@ -10,14 +11,11 @@ import BottomTabBar from "../../components/navigation/BottomTabBar";
 //   profile
 //
 // Every nested/child route gets NO bottom navigation.
-const BOTTOM_NAV_ROUTES = new Set([
-  "feeds",
-  "reels",
-  "chats",
-  "profile",
-]);
+const BOTTOM_NAV_ROUTES = new Set(["feeds", "reels", "chats", "profile"]);
 
 export default function MainLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -47,7 +45,7 @@ export default function MainLayout() {
         // Otherwise, use the tab route name directly.
         const actualRouteName =
           nestedRoutes.length > 0
-            ? (activeNestedRoute?.name || "")
+            ? activeNestedRoute?.name || ""
             : activeTabName;
 
         // Only show bottom nav on exact tab root routes.
@@ -91,6 +89,12 @@ export default function MainLayout() {
             {...props}
             activeTab={activeTabFirstSegment}
             onTabPress={handleTabPress}
+            style={{
+              position: "absolute",
+              bottom: insets.bottom,
+              left: 0,
+              right: 0,
+            }}
           />
         );
       }}

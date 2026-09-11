@@ -6,8 +6,10 @@ export default function ReelVideo({
   uri,
   active = false,
   muted = true,
+  playing = true,
   onPress,
   onMutePress,
+  onPlayPress,
   resizeMode = "cover",
 }) {
   if (!uri) {
@@ -18,16 +20,28 @@ export default function ReelVideo({
     );
   }
 
+  // Show the play button when the reel is not the active one yet, or when
+  // the active reel has been paused by the user.
+  const paused = active && !playing;
+  const showPlayOverlay = !active || paused;
+
   return (
     <Pressable onPress={onPress} style={styles.container}>
       <Image source={{ uri }} resizeMode={resizeMode} style={styles.video} />
 
-      {!active ? (
-        <View style={styles.playOverlay}>
+      {showPlayOverlay ? (
+        <Pressable
+          style={styles.playOverlay}
+          onPress={(event) => {
+            event.stopPropagation?.();
+            onPlayPress?.();
+          }}
+          hitSlop={8}
+        >
           <View style={styles.playButton}>
             <Ionicons name="play" size={25} color="#FFFFFF" />
           </View>
-        </View>
+        </Pressable>
       ) : null}
 
       {onMutePress ? (

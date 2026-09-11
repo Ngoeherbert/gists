@@ -15,11 +15,13 @@ export default function CommentInput({
   value,
   onChangeText,
   onSubmit,
+  onFocus,
   placeholder = "Add a comment...",
   user,
   replyingTo,
   onCancelReply,
   loading = false,
+  keyboardAvoiding = true,
 }) {
   /*
    * The text actually shown/used. Updated synchronously
@@ -87,11 +89,8 @@ export default function CommentInput({
     }
   };
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
-    >
+  const content = (
+    <>
       {replyingTo && (
         <View style={styles.replyingBar}>
           <View style={styles.replyingInfo}>
@@ -126,6 +125,7 @@ export default function CommentInput({
           <TextInput
             value={text}
             onChangeText={handleChangeText}
+            onFocus={onFocus}
             placeholder={placeholder}
             placeholderTextColor="#999999"
             multiline
@@ -151,6 +151,22 @@ export default function CommentInput({
           </Pressable>
         </View>
       </View>
+    </>
+  );
+
+  // When rendered inside a full-screen modal the parent (e.g. CommentModal)
+  // is responsible for lifting the sheet above the keyboard, so the
+  // KeyboardAvoidingView is disabled there to avoid double padding.
+  if (!keyboardAvoiding) {
+    return content;
+  }
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+    >
+      {content}
     </KeyboardAvoidingView>
   );
 }

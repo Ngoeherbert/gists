@@ -48,12 +48,18 @@ export default function ChatList({
           </View>
         )
       }
-      contentContainerStyle={chats.length === 0 && styles.emptyContainer}
+      contentContainerStyle={[
+        styles.content,
+        chats.length === 0 && styles.emptyContainer,
+      ]}
     />
   );
 }
 
 const styles = StyleSheet.create({
+  content: {
+    paddingBottom: 100,
+  },
   emptyContainer: {
     flexGrow: 1,
   },

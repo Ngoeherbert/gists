@@ -1,28 +1,47 @@
 // apps/mobile/components/reels/ReelMenu.jsx
 import { Ionicons } from "@expo/vector-icons";
-import { Modal, Pressable, StyleSheet, Text } from "react-native";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from "react-native";
 
 export default function ReelMenu({
   visible = false,
   onClose,
-  onSave,
+  autoSkip = false,
+  onToggleAutoSkip,
+  onDownload,
   onNotInterested,
   onReport,
   onDelete,
   canDelete = false,
 }) {
-  const actions = [
+  const items = [
     {
-      label: "Save reel",
-      icon: "bookmark-outline",
-      action: onSave,
+      type: "toggle",
+      label: "Auto-skip next reel",
+      icon: "play-skip-forward-outline",
+      value: autoSkip,
+      onValueChange: onToggleAutoSkip,
     },
     {
+      type: "action",
+      label: "Download reel",
+      icon: "download-outline",
+      action: onDownload,
+    },
+    {
+      type: "action",
       label: "Not interested",
       icon: "eye-off-outline",
       action: onNotInterested,
     },
     {
+      type: "action",
       label: "Report",
       icon: "flag-outline",
       action: onReport,
@@ -30,6 +49,7 @@ export default function ReelMenu({
     ...(canDelete
       ? [
           {
+            type: "action",
             label: "Delete reel",
             icon: "trash-outline",
             action: onDelete,
@@ -51,9 +71,34 @@ export default function ReelMenu({
           style={styles.menu}
           onPress={(event) => event.stopPropagation()}
         >
-          {actions
-            .filter((item) => typeof item.action === "function")
-            .map((item) => (
+          {items.map((item) => {
+            if (item.type === "toggle") {
+              return (
+                <View key={item.label} style={styles.item}>
+                  <Ionicons
+                    name={item.icon}
+                    size={21}
+                    color="#111111"
+                  />
+
+                  <Text style={[styles.label, styles.labelFlex]}>{item.label}</Text>
+
+                  <Switch
+                    value={item.value}
+                    onValueChange={item.onValueChange}
+                    trackColor={{ false: "#D5D5D5", true: "#111111" }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="#D5D5D5"
+                  />
+                </View>
+              );
+            }
+
+            if (typeof item.action !== "function") {
+              return null;
+            }
+
+            return (
               <Pressable
                 key={item.label}
                 onPress={() => {
@@ -75,7 +120,8 @@ export default function ReelMenu({
                   {item.label}
                 </Text>
               </Pressable>
-            ))}
+            );
+          })}
         </Pressable>
       </Pressable>
     </Modal>
@@ -109,6 +155,9 @@ const styles = StyleSheet.create({
     color: "#111111",
     fontSize: 15,
     fontWeight: "600",
+  },
+  labelFlex: {
+    flex: 1,
   },
   danger: {
     color: "#D64545",

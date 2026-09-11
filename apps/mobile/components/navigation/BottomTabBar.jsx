@@ -34,7 +34,7 @@ const DEFAULT_TABS = [
     key: "reels",
     label: "Reel",
     icon: "youtube",
-    activeIcon: "play-circle",
+    activeIcon: "youtube",
     iconLibrary: "Feather",
   },
   {
@@ -49,14 +49,14 @@ const DEFAULT_TABS = [
     key: "chats",
     label: "Chats",
     icon: "chatbubble-outline",
-    activeIcon: "chatbubble",
+    activeIcon: "chatbubble-outline",
     iconLibrary: "Ionicons",
   },
   {
     key: "profile",
     label: "Profile",
     icon: "person-outline",
-    activeIcon: "person",
+    activeIcon: "person-outline",
     iconLibrary: "Ionicons",
   },
 ];
@@ -86,6 +86,7 @@ export default function BottomTabBar({
   onTabPress,
   tabs = DEFAULT_TABS,
   unreadCount = 0,
+  style,
 }) {
   const handleTabPress = (tab) => {
     if (typeof onTabPress === "function") {
@@ -94,7 +95,7 @@ export default function BottomTabBar({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <View style={styles.bar}>
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
@@ -156,10 +157,10 @@ const styles = StyleSheet.create({
 
   bar: {
     height: 68,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#eeeeee80",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
