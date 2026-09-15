@@ -17,6 +17,7 @@ const SIZES = {
   xl: layout.avatarSize.xl,
   xxl: layout.avatarSize.xxl,
   huge: layout.avatarSize.huge,
+  story: layout.story.size,
 };
 
 function initialsOf(name = "") {

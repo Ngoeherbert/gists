@@ -95,7 +95,7 @@ export default function ShareProfileScreen() {
 
 const styles = StyleSheet.create({
   body: {
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
   card: {
     alignItems: "center",

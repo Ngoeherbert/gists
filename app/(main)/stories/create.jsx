@@ -121,7 +121,7 @@ export default function CreateStoryScreen() {
 const styles = StyleSheet.create({
   body: {
     flex: 1,
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
   dropzone: {
     height: 220,
@@ -140,6 +140,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   footer: {
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
 });

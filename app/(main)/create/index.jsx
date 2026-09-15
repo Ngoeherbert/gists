@@ -61,6 +61,7 @@ export default function CreateHubScreen() {
     <Screen
       scroll
       padded={false}
+      edges={["top"]}
       style={styles.body}
       header={<Header title="Create" showBack centerTitle />}
     >
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   list: {
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
   card: {
     marginBottom: spacing.md,

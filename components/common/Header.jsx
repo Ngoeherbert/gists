@@ -21,6 +21,7 @@ export default function Header({
   onSearchPress,
   right = null,
   centerTitle = false,
+  compactTitle = false,
   border = true,
   style,
 }) {
@@ -31,6 +32,7 @@ export default function Header({
     <View
       style={[
         styles.wrap,
+        compactTitle && styles.compactWrap,
         {
           borderBottomColor: isDark ? colors.border : theme.colors.border,
           borderBottomWidth: border ? layout.borderWidth.thin : 0,
@@ -38,7 +40,7 @@ export default function Header({
         style,
       ]}
     >
-      <View style={styles.side}>
+      <View style={[styles.side, compactTitle && styles.compactSide]}>
         {showBack ? (
           <IconButton
             name="arrow-back"
@@ -100,5 +102,12 @@ const styles = StyleSheet.create({
   },
   centerAlign: {
     alignItems: "center",
+  },
+  compactSide: {
+    minWidth: spacing.xl,
+  },
+  compactWrap: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
   },
 });

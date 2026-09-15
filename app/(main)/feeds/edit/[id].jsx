@@ -112,7 +112,7 @@ export default function EditPostScreen() {
 
 const styles = StyleSheet.create({
   body: {
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
 
   authorRow: {

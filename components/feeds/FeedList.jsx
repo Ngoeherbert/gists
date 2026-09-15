@@ -13,7 +13,13 @@ import EmptyState from "../ui/EmptyState";
 import Loading, { Spinner } from "../ui/Loading";
 import PostCard from "./PostCard";
 
-export default function FeedList({ feed = "home", fetchPage, emptyProps }) {
+export default function FeedList({
+  feed = "home",
+  fetchPage,
+  emptyProps,
+  contentContainerStyle,
+  style,
+}) {
   const { theme } = useAppTheme();
 
   const feedState = useFeedStore((s) => s.feeds[feed]);
@@ -58,9 +64,11 @@ export default function FeedList({ feed = "home", fetchPage, emptyProps }) {
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={
-        data.length === 0 ? styles.emptyContent : undefined
-      }
+      style={[styles.list, style]}
+      contentContainerStyle={[
+        data.length === 0 ? styles.emptyContent : styles.content,
+        contentContainerStyle,
+      ]}
       onEndReachedThreshold={0.4}
       onEndReached={() => {
         if (feedState?.hasMore && !feedState?.isLoading) load(false);
@@ -94,10 +102,20 @@ export default function FeedList({ feed = "home", fetchPage, emptyProps }) {
 }
 
 const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
   emptyContent: {
     flexGrow: 1,
     justifyContent: "center",
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
   },
   footer: {
     marginVertical: spacing.xl,

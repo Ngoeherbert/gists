@@ -142,7 +142,7 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
   body: {
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
   avatarBlock: {
     alignItems: "center",

@@ -99,7 +99,7 @@ return (
 const styles = StyleSheet.create({
   stage: {
     flex: 1,
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -123,6 +123,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   footer: {
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
 });

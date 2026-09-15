@@ -27,6 +27,7 @@ export default function ProfileScreen() {
 
 return (
     <Screen
+      edges={["top"]}
       header={
         <Header
           title={profile?.username || "Profile"}

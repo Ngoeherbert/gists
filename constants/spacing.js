@@ -12,8 +12,8 @@ const spacing = {
   huge: 40,
   massive: 48,
 
-  screenHorizontal: 12,
-  screenVertical: 12,
+  screenHorizontal: 8,
+  screenVertical: 8,
 
   cardPadding: 12,
   sectionGap: 24,

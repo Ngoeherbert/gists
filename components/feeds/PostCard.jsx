@@ -219,8 +219,8 @@ export default memo(PostCard);
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: spacing.screenHorizontal,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderBottomWidth: layout.borderWidth.thin,
   },
   authorRow: {

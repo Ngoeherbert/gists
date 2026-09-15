@@ -23,7 +23,8 @@ const makeFeed = () => ({
 });
 
 const initialState = {
-  feed: makeFeed(),
+  homeFeed: makeFeed(),
+  followingFeed: {},
   reels: {}, // reelId -> reel
   comments: {}, // reelId -> { ids, byId, cursor, hasMore, isLoading }
 
@@ -59,14 +60,14 @@ const useReelStore = create((set, get) => ({
   // -------------------------------------------------------------------------
   // Feed
   // -------------------------------------------------------------------------
-  fetchReels: async ({ refresh = false, fetchPage } = {}) => {
-    const current = get().feed;
+  fetchReels: async ({ refresh = false, fetchPage, feedType = "home" } = {}) => {
+    const current = get()[feedType === "home" ? "homeFeed" : "followingFeed"];
     if (current.isLoading) return [];
     if (!refresh && !current.hasMore) return [];
 
     set((state) => ({
-      feed: {
-        ...state.feed,
+      [feedType === "home" ? "homeFeed" : "followingFeed"]: {
+        ...current,
         isLoading: true,
         isRefreshing: refresh,
         error: null,
@@ -81,15 +82,15 @@ const useReelStore = create((set, get) => ({
       });
 
       set((state) => {
-        const prevIds = refresh ? [] : state.feed.ids;
+        const prevIds = refresh ? [] : current.ids;
         const reels = { ...state.reels };
         items.forEach((r) => {
           reels[r.id] = r;
         });
         return {
           reels,
-          feed: {
-            ...state.feed,
+          [feedType === "home" ? "homeFeed" : "followingFeed"]: {
+            ...current,
             ids: Array.from(new Set([...prevIds, ...items.map((r) => r.id)])),
             cursor: nextCursor,
             hasMore: Boolean(nextCursor),
@@ -101,8 +102,8 @@ const useReelStore = create((set, get) => ({
       return items;
     } catch (error) {
       set((state) => ({
-        feed: {
-          ...state.feed,
+        [feedType === "home" ? "homeFeed" : "followingFeed"]: {
+          ...current,
           isLoading: false,
           isRefreshing: false,
           error: error.message || "Failed to load reels",
@@ -141,9 +142,9 @@ const useReelStore = create((set, get) => ({
       const { [reelId]: _removed, ...reels } = state.reels;
       return {
         reels,
-        feed: {
-          ...state.feed,
-          ids: state.feed.ids.filter((id) => id !== reelId),
+        homeFeed: {
+          ...state.homeFeed,
+          ids: state.homeFeed.ids.filter((id) => id !== reelId),
         },
       };
     }),
@@ -368,10 +369,10 @@ const useReelStore = create((set, get) => ({
       const reel = await provider(payload ?? get().draft);
       set((state) => {
         const reels = { ...state.reels, [reel.id]: reel };
-        const feed = { ...state.feed, ids: [reel.id, ...state.feed.ids] };
+        const homeFeed = { ...state.homeFeed, ids: [reel.id, ...state.homeFeed.ids] };
         return {
           reels,
-          feed,
+          homeFeed,
           isUploading: false,
           uploadProgress: 1,
           draft: null,
@@ -392,7 +393,8 @@ const useReelStore = create((set, get) => ({
   reset: () =>
     set({
       ...initialState,
-      feed: makeFeed(),
+      homeFeed: makeFeed(),
+      followingFeed: makeFeed(),
       editor: { trim: null, music: null, effects: {}, text: [] },
     }),
 }));

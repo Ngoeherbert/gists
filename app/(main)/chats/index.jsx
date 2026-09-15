@@ -37,6 +37,7 @@ export default function ChatsScreen() {
 return (
     <Screen
       padded={false}
+      edges={["top"]}
       header={
         <Header
           title="Chats"
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   searchBar: {
-    paddingHorizontal: spacing.screenHorizontal,
+    paddingHorizontal: spacing.sm,
   },
   searchIcon: {
     alignSelf: "flex-start",

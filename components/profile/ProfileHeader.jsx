@@ -104,7 +104,7 @@ export default function ProfileHeader({
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: spacing.screenHorizontal,
+    paddingHorizontal: spacing.sm,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },

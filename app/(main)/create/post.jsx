@@ -67,6 +67,6 @@ export default function CreatePostScreen() {
 const styles = StyleSheet.create({
   body: {
     flex: 1,
-    padding: spacing.screenHorizontal,
+    padding: spacing.sm,
   },
 });

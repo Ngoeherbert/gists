@@ -29,7 +29,7 @@ export default function MainLayout() {
       />
       <Tabs.Screen
         name="create"
-        options={{ title: tabs.create, tabBarIcon: () => "add-circle-outline" }}
+        options={{ title: tabs.create, tabBarIcon: () => "add" }}
       />
       <Tabs.Screen
         name="chats"
@@ -39,8 +39,6 @@ export default function MainLayout() {
         name="profile"
         options={{ title: tabs.profile, tabBarIcon: () => "person-circle-outline" }}
       />
-
-      {/* Reachable from the tab sections, not shown in the bar. */}
       <Tabs.Screen name="stories" options={{ href: null }} />
     </Tabs>
   );

@@ -35,6 +35,13 @@ const initialState = {
   providers: {},
 };
 
+function groupHasUnseen(group, seen) {
+  return Boolean(
+    group?.hasUnseen &&
+      group.stories?.some((story) => !seen[story.id] && !story.seen),
+  );
+}
+
 const useStoryStore = create((set, get) => ({
   ...initialState,
 
@@ -51,7 +58,7 @@ const useStoryStore = create((set, get) => ({
   fetchStories: async ({ refresh = false, fetchStories } = {}) => {
     set({ isLoading: !refresh, isRefreshing: refresh, error: null });
     try {
-      const provider = fetchStories || get().providers.feed || storiesProvider;
+      const provider = fetchStories || get().providers.stories || storiesProvider;
       const groups = (await provider()) || [];
       set({ groups, isLoading: false, isRefreshing: false });
       return groups;
@@ -150,18 +157,37 @@ const useStoryStore = create((set, get) => ({
   // -------------------------------------------------------------------------
   markSeen: (storyId) => {
     if (!storyId) return;
-    set((state) => ({ seen: { ...state.seen, [storyId]: true } }));
+    set((state) => {
+      const seen = { ...state.seen, [storyId]: true };
+      const groupIndex = state.groups.findIndex((group) =>
+        Array.isArray(group.stories) && group.stories.some((story) => story?.id === storyId),
+      );
+      if (groupIndex === -1) return { seen };
+      const group = state.groups[groupIndex];
+      const groups = [...state.groups];
+      groups[groupIndex] = {
+        ...group,
+        hasUnseen: groupHasUnseen(group, seen),
+      };
+      return { seen, groups };
+    });
   },
 
   markGroupSeen: (groupId) =>
     set((state) => {
-      const group = state.groups.find((g) => g.id === groupId);
-      if (!group) return state;
+      const groupIndex = state.groups.findIndex((group) => group.id === groupId);
+      if (groupIndex === -1) return state;
+      const group = state.groups[groupIndex];
       const seen = { ...state.seen };
-      group.stories?.forEach((s) => {
-        seen[s.id] = true;
+      group.stories?.forEach((story) => {
+        seen[story.id] = true;
       });
-      return { seen };
+      const groups = [...state.groups];
+      groups[groupIndex] = {
+        ...group,
+        hasUnseen: false,
+      };
+      return { seen, groups };
     }),
 
   isSeen: (storyId) => Boolean(get().seen[storyId]) || Boolean(get().groups
