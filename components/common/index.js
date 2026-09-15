@@ -3,3 +3,8 @@
 
 export { default as Screen } from "./Screen";
 export { default as Header } from "./Header";
+// components/common/index.js
+// Barrel for layout-level shared components.
+
+export { default as Screen } from "./Screen";
+export { default as Header } from "./Header";
