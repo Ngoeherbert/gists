@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   storyCard: {
-    width: 82,
+    width: 72,
     height: 112,
     alignItems: "center",
     justifyContent: "center",
