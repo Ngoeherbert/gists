@@ -29,7 +29,7 @@ export default function PhoneScreen() {
     const clean = phone.replace(/[\s-]/g, "");
     startOtp({ type: "phone", value: clean, channel: "sms" });
     showToast(`Code sent to ${clean}`, "info");
-    router.push({ pathname: "/(auth)/phone-otp", params: { phone: clean } });
+    router.navigate({ pathname: "/(auth)/phone-otp", params: { phone: clean } });
   }, [phone, startOtp, router, showToast]);
 
   return (

@@ -32,12 +32,13 @@ function ReelItem({ reel, isActive, height }) {
   const togglePlay = useReelStore((s) => s.togglePlay);
   const isPlaying = useReelStore((s) => s.isPlaying);
 
+  if (!reel) return null;
+
   const handleLike = useCallback(
     () => toggleLike({ reelId: reel.id }),
     [toggleLike, reel.id],
   );
 
-  if (!reel) return null;
   const author = reel.author || {};
 
   return (
@@ -62,7 +63,7 @@ function ReelItem({ reel, isActive, height }) {
         <View style={styles.bottomLeft}>
           <Pressable
             style={styles.authorRow}
-            onPress={() => router.push(`/(main)/profile/${author.id ?? "me"}`)}
+            onPress={() => router.navigate(`/profile/${author.id ?? "me"}`)}
           >
             <Avatar
               uri={author.avatarUrl}
@@ -108,7 +109,7 @@ function ReelItem({ reel, isActive, height }) {
           <RailAction
             icon="chatbubble-outline"
             label={formatCount(reel.commentsCount ?? 0)}
-            onPress={() => router.push(`/(main)/reels/comments/${reel.id}`)}
+            onPress={() => router.navigate(`/(main)/reels/comments/${reel.id}`)}
           />
           <RailAction
             icon="paper-plane-outline"
@@ -125,7 +126,7 @@ function ReelItem({ reel, isActive, height }) {
           />
           <RailAction
             icon="ellipsis-horizontal"
-            onPress={() => router.push("/(main)/reels/settings")}
+            onPress={() => router.navigate("/(main)/reels/settings")}
           />
         </View>
       </View>

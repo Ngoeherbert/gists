@@ -29,7 +29,7 @@ export default function EmailScreen() {
     const clean = email.trim().toLowerCase();
     startOtp({ type: "email", value: clean, channel: "email" });
     showToast(`Code sent to ${clean}`, "info");
-    router.push({ pathname: "/(auth)/email-otp", params: { email: clean } });
+    router.navigate({ pathname: "/(auth)/email-otp", params: { email: clean } });
   }, [email, startOtp, router, showToast]);
 
   return (

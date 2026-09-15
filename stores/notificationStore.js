@@ -34,7 +34,7 @@ const initialState = {
   pushToken: null,
   pushPermission: "undetermined", // "granted" | "denied" | "undetermined"
 
-  // Preferences (mirrors profile/settings/notifications)
+  // Preferences (mirrors the profile/settings preference pages)
   preferences: {
     push: true,
     likes: true,
@@ -48,6 +48,13 @@ const initialState = {
     email: false,
     sound: true,
     vibration: true,
+    // Chat preferences (profile/settings/chat)
+    receipts: true,
+    typing: true,
+    previews: true,
+    // Privacy preferences (profile/settings/privacy)
+    privateAccount: false,
+    activityStatus: true,
   },
 
   error: null,

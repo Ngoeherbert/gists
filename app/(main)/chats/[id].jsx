@@ -24,7 +24,7 @@ import useAppTheme from "../../../hooks/useAppTheme";
 import useChatStore from "../../../stores/chatStore";
 import useAppStore from "../../../stores/appStore";
 import useAuthStore from "../../../stores/authStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Avatar, EmptyState, IconButton, Text } from "../../../components/ui";
 import MessageBubble from "../../../components/chats/MessageBubble";
 
@@ -82,12 +82,18 @@ export default function ChatThreadScreen() {
     [id, setTyping, user?.id]
   );
 
+  // Clear the typing flag when the chat screen is left.
+  useEffect(() => {
+    return () => {
+      setTyping(id, user?.id, false);
+    };
+  }, [id, setTyping, user?.id]);
+
   return (
-    <KeyboardAvoidingView
+    <Screen
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <Header
+      padded={false}
+      header={<Header
         title={title || "Chat"}
         subtitle={peer.isOnline ? "online" : undefined}
         showBack
@@ -95,15 +101,16 @@ export default function ChatThreadScreen() {
           <View style={styles.headerActions}>
             <IconButton
               name="call-outline"
-              onPress={() => router.push(`/(main)/chats/call/voice?id=${id}`)}
+              onPress={() => router.navigate(`/(main)/chats/call/voice?id=${id}`)}
             />
             <IconButton
               name="videocam-outline"
-              onPress={() => router.push(`/(main)/chats/call/video?id=${id}`)}
+              onPress={() => router.navigate(`/(main)/chats/call/video?id=${id}`)}
             />
           </View>
         }
-      />
+      />}
+    >
 
       <FlatList
         ref={listRef}
@@ -163,7 +170,7 @@ export default function ChatThreadScreen() {
           />
         )}
       </View>
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
@@ -185,7 +192,7 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.screenHorizontal,
     paddingTop: spacing.sm,
     borderTopWidth: layout.borderWidth.thin,
   },

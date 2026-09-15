@@ -6,7 +6,7 @@ import { FlatList, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import spacing from "../../../../constants/spacing";
 import useFeedStore from "../../../../stores/feedStore";
-import { Header } from "../../../../components/common";
+import { Header, Screen } from "../../../../components/common";
 import { EmptyState, Loading } from "../../../../components/ui";
 import PostCard from "../../../../components/feeds/PostCard";
 import CommentRow from "../../../../components/feeds/CommentRow";
@@ -21,26 +21,24 @@ export default function PostDetailScreen() {
   const comments = (bucket?.ids ?? []).map((cid) => bucket.byId[cid]).filter(Boolean);
 
   const openComments = useCallback(
-    () => router.push(`/(main)/feeds/post/${id}/comments`),
+    () => router.navigate(`/(main)/feeds/post/${id}/comments`),
     [router, id]
   );
 
   if (!post) {
     return (
-      <View style={styles.container}>
-        <Header title="Post" showBack />
+      <Screen padded={false} header={<Header title="Post" showBack />}>
         <EmptyState
           icon="alert-circle-outline"
           title="Post unavailable"
           description="This post may have been deleted or is no longer public."
         />
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Header title="Post" showBack />
+    <Screen padded={false} header={<Header title="Post" showBack />}>
       <FlatList
         data={comments}
         keyExtractor={(item) => item.id}
@@ -66,14 +64,11 @@ export default function PostDetailScreen() {
         ListFooterComponent={<View style={styles.footerSpace} />}
         showsVerticalScrollIndicator={false}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   commentsHeader: {
     marginTop: spacing.sm,
   },

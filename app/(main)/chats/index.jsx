@@ -6,7 +6,7 @@ import { FlatList, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import spacing from "../../../constants/spacing";
 import useChatStore from "../../../stores/chatStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { EmptyState, IconButton, Loading } from "../../../components/ui";
 import ConversationRow from "../../../components/chats/ConversationRow";
 
@@ -16,6 +16,7 @@ export default function ChatsScreen() {
   const conversations = useChatStore((s) => s.conversations);
   const isLoading = useChatStore((s) => s.isLoadingConversations);
   const pinned = useChatStore((s) => s.pinned);
+  const muted = useChatStore((s) => s.muted);
   const setActiveConversation = useChatStore((s) => s.setActiveConversation);
 
   const sorted = [...conversations].sort((a, b) => {
@@ -28,33 +29,36 @@ export default function ChatsScreen() {
   const openConversation = useCallback(
     (conversation) => {
       setActiveConversation(conversation.id);
-      router.push(`/(main)/chats/${conversation.id}`);
+      router.navigate(`/(main)/chats/${conversation.id}`);
     },
     [setActiveConversation, router]
   );
 
-  return (
-    <View style={styles.container}>
-      <Header
-        title="Chats"
-        right={
-          <View style={styles.actions}>
-            <IconButton
-              name="sparkles-outline"
-              onPress={() => router.push("/(main)/chats/ai")}
-            />
-            <IconButton
-              name="create-outline"
-              onPress={() => router.push("/(main)/chats/new-gist")}
-            />
-          </View>
-        }
-      />
-
+return (
+    <Screen
+      padded={false}
+      header={
+        <Header
+          title="Chats"
+          right={
+            <View style={styles.actions}>
+              <IconButton
+                name="sparkles-outline"
+                onPress={() => router.navigate("/(main)/chats/ai")}
+              />
+              <IconButton
+                name="create-outline"
+                onPress={() => router.navigate("/(main)/chats/new-gist")}
+              />
+            </View>
+          }
+        />
+      }
+    >
       <View style={styles.searchBar}>
         <IconButton
           name="search-outline"
-          onPress={() => router.push("/(main)/chats/search")}
+          onPress={() => router.navigate("/(main)/chats/search")}
           style={styles.searchIcon}
         />
       </View>
@@ -66,7 +70,11 @@ export default function ChatsScreen() {
           data={sorted}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <ConversationRow conversation={item} onPress={openConversation} />
+            <ConversationRow
+              conversation={item}
+              muted={muted.includes(item.id)}
+              onPress={openConversation}
+            />
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={sorted.length === 0 ? styles.empty : undefined}
@@ -76,25 +84,22 @@ export default function ChatsScreen() {
               title="No conversations yet"
               description="Start a chat with someone you follow, or open a gist room."
               actionLabel="New message"
-              onAction={() => router.push("/(main)/chats/new-gist")}
+              onAction={() => router.navigate("/(main)/chats/new-gist")}
             />
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   actions: {
     flexDirection: "row",
     alignItems: "center",
   },
   searchBar: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.screenHorizontal,
   },
   searchIcon: {
     alignSelf: "flex-start",

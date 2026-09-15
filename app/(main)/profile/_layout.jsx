@@ -14,9 +14,7 @@ export default function ProfileLayout() {
       }}
     >
       <Stack.Screen name="index" />
-      <Stack.Screen name="[id]" />
       <Stack.Screen name="edit" />
-      <Stack.Screen name="share" />
       <Stack.Screen name="feeds" />
       <Stack.Screen name="reels" />
       <Stack.Screen name="likes" />

@@ -40,7 +40,7 @@ export default function GetStartedScreen() {
 
   const handleContinue = () => {
     completeOnboarding();
-    router.push("/(auth)/welcome");
+    router.navigate("/(auth)/welcome");
   };
 
   return (
@@ -114,7 +114,7 @@ export default function GetStartedScreen() {
           variant="link"
           fullWidth
           style={styles.signin}
-          onPress={() => router.push("/(auth)/login")}
+          onPress={() => router.navigate("/(auth)/login")}
         />
       </View>
     </Screen>

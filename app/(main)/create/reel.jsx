@@ -14,7 +14,7 @@ import useAppTheme from "../../../hooks/useAppTheme";
 import useReelStore from "../../../stores/reelStore";
 import useAppStore from "../../../stores/appStore";
 import useAuthStore from "../../../stores/authStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Button, Input, Text } from "../../../components/ui";
 
 export default function CreateReelScreen() {
@@ -78,8 +78,7 @@ export default function CreateReelScreen() {
   }, [video, caption, publishReel, user, showToast, router]);
 
   return (
-    <View style={styles.container}>
-      <Header title="New reel" showBack />
+    <Screen padded={false} header={<Header title="New reel" showBack />}>
 
       <View style={styles.body}>
         <Pressable
@@ -128,14 +127,11 @@ export default function CreateReelScreen() {
           onPress={handlePublish}
         />
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     flex: 1,
     padding: spacing.screenHorizontal,

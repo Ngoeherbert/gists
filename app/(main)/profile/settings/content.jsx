@@ -22,7 +22,7 @@ export default function ContentSettingsScreen() {
               label: "Interests",
               description: "Pick topics to personalise your feed",
               value: interests.length ? `${interests.length} selected` : "None",
-              onPress: () => router.push("/(auth)/interests"),
+              onPress: () => router.navigate("/(auth)/interests"),
             },
             {
               key: "language",

@@ -108,7 +108,7 @@ export default function ReelsScreen() {
         <IconButton
           name="camera-outline"
           color={colors.white}
-          onPress={() => router.push("/(main)/create/reel")}
+          onPress={() => router.navigate("/(main)/create/reel")}
         />
       </View>
     </View>

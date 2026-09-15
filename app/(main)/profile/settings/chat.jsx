@@ -2,9 +2,13 @@
 // Chat preferences: read receipts, typing indicators, media auto-download.
 
 import React from "react";
+import useNotificationStore from "../../../../stores/notificationStore";
 import SettingsScreen from "../../../../components/profile/SettingsScreen";
 
 export default function ChatSettingsScreen() {
+  const preferences = useNotificationStore((s) => s.preferences);
+  const setPreference = useNotificationStore((s) => s.setPreference);
+
   return (
     <SettingsScreen
       title="Chats"
@@ -17,7 +21,8 @@ export default function ChatSettingsScreen() {
               label: "Read receipts",
               description: "Let people know when you've read their messages",
               switch: true,
-              defaultValue: true,
+              defaultValue: preferences.receipts,
+              onChange: (v) => setPreference("receipts", v),
             },
             {
               key: "typing",
@@ -25,7 +30,8 @@ export default function ChatSettingsScreen() {
               label: "Typing indicator",
               description: "Show when you're typing",
               switch: true,
-              defaultValue: true,
+              defaultValue: preferences.typing,
+              onChange: (v) => setPreference("typing", v),
             },
             {
               key: "previews",
@@ -33,7 +39,8 @@ export default function ChatSettingsScreen() {
               label: "Message previews",
               description: "Show message text in notifications",
               switch: true,
-              defaultValue: true,
+              defaultValue: preferences.previews,
+              onChange: (v) => setPreference("previews", v),
             },
           ],
         },
@@ -44,13 +51,15 @@ export default function ChatSettingsScreen() {
               icon: "cloud-download-outline",
               label: "Auto-download media",
               value: "Wi-Fi only",
-              onPress: () => {},
+              // No flow exists yet — rendered as information, not a button.
+              showChevron: false,
             },
             {
               key: "wallpaper",
               icon: "color-palette-outline",
               label: "Chat wallpaper",
-              onPress: () => {},
+              // No flow exists yet — rendered as non-actionable.
+              showChevron: false,
             },
           ],
         },

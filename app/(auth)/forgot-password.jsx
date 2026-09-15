@@ -30,7 +30,7 @@ export default function ForgotPasswordScreen() {
     const clean = email.trim().toLowerCase();
     startOtp({ type: "email", value: clean, channel: "email" });
     showToast("Reset code sent", "success");
-    router.push({ pathname: "/(auth)/reset-otp", params: { email: clean } });
+    router.navigate({ pathname: "/(auth)/reset-otp", params: { email: clean } });
   }, [email, startOtp, router, showToast]);
 
   return (

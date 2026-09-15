@@ -2,7 +2,7 @@
 // The content-grid tabs on a profile (Posts / Reels / Likes / Saved) plus the
 // matching grid body. Each tab reads a profileStore list.
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "../../constants/colors";
@@ -28,8 +28,15 @@ export default function ProfileTabs({ userId = "me", ListHeaderComponent }) {
 
   const list = useProfileStore((s) => s.lists[`${tab}:${userId}`]);
   const entities = useProfileStore((s) => s.entities);
+  const fetchList = useProfileStore((s) => s.fetchList);
+  const loadMoreList = useProfileStore((s) => s.loadMoreList);
 
   const data = (list?.ids ?? []).map((id) => entities[id]).filter(Boolean);
+
+  // Load the active tab's content the first time it is shown.
+  useEffect(() => {
+    if (!list) fetchList({ type: tab, userId });
+  }, [tab, userId, list, fetchList]);
 
   const renderItem = useCallback(
     ({ item }) => (
@@ -56,7 +63,7 @@ export default function ProfileTabs({ userId = "me", ListHeaderComponent }) {
       {ListHeaderComponent}
       <SegmentedControl segments={TABS} value={tab} onChange={setTab} />
 
-      {list?.isLoading && data.length === 0 ? (
+      {!list || (list.isLoading && data.length === 0) ? (
         <Loading label="Loading…" />
       ) : (
         <FlatList
@@ -67,7 +74,12 @@ export default function ProfileTabs({ userId = "me", ListHeaderComponent }) {
           columnWrapperStyle={styles.column}
           contentContainerStyle={data.length === 0 ? styles.empty : styles.grid}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={ListHeaderComponent}
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (list?.hasMore && !list?.isLoading) {
+              loadMoreList({ type: tab, userId });
+            }
+          }}
           ListEmptyComponent={
             <EmptyState
               compact

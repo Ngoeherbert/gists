@@ -9,6 +9,7 @@ import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
 import useFeedStore from "../../stores/feedStore";
+import { formatRelativeTime } from "../../utils/formatters";
 import Avatar from "../ui/Avatar";
 import Text from "../ui/Text";
 
@@ -33,7 +34,7 @@ function CommentRow({ postId, comment }) {
             {author.username || author.name || "user"}
           </Text>
           <Text variant="caption" color="tertiary">
-            {comment.createdAt ? "· now" : ""}
+            {comment.createdAt ? `· ${formatRelativeTime(comment.createdAt)}` : ""}
           </Text>
         </View>
 

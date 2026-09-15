@@ -22,7 +22,7 @@ import useAppTheme from "../../../../hooks/useAppTheme";
 import useReelStore from "../../../../stores/reelStore";
 import useAppStore from "../../../../stores/appStore";
 import useAuthStore from "../../../../stores/authStore";
-import { Header } from "../../../../components/common";
+import { Header, Screen } from "../../../../components/common";
 import { Avatar, EmptyState, IconButton } from "../../../../components/ui";
 import CommentRow from "../../../../components/feeds/CommentRow";
 
@@ -62,11 +62,11 @@ export default function ReelCommentsScreen() {
   }, [draft, id, addComment, user, showToast]);
 
   return (
-    <KeyboardAvoidingView
+    <Screen
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      padded={false}
+      header={<Header title="Comments" showBack />}
     >
-      <Header title="Comments" showBack />
 
       <FlatList
         data={comments}
@@ -130,7 +130,7 @@ export default function ReelCommentsScreen() {
           onPress={send}
         />
       </View>
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

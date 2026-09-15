@@ -24,6 +24,8 @@ export default function Screen({
   center = false,
   edges = ["top", "bottom"],
   background,
+  header = null,
+  headerStyle,
   contentContainerStyle,
   style,
 }) {
@@ -34,6 +36,7 @@ export default function Screen({
   const inner = scroll ? (
     <ScrollView
       contentContainerStyle={[
+        { backgroundColor: bg },
         padded && styles.padded,
         center && styles.centered,
         contentContainerStyle,
@@ -47,6 +50,7 @@ export default function Screen({
     <View
       style={[
         styles.flex,
+        { backgroundColor: bg },
         padded && styles.padded,
         center && styles.centered,
         contentContainerStyle,
@@ -58,13 +62,25 @@ export default function Screen({
 
   const body = keyboardAvoiding ? (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: bg }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      {header ? (
+        <View style={[styles.headerSlot, { backgroundColor: bg }, headerStyle]}>
+          {header}
+        </View>
+      ) : null}
       {inner}
     </KeyboardAvoidingView>
   ) : (
-    inner
+    <>
+      {header ? (
+        <View style={[styles.headerSlot, { backgroundColor: bg }, headerStyle]}>
+          {header}
+        </View>
+      ) : null}
+      {inner}
+    </>
   );
 
   return (
@@ -89,4 +105,5 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
   },
+  headerSlot: {},
 });

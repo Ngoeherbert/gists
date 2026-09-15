@@ -64,7 +64,7 @@ export default function CompleteProfileScreen() {
     setIsSaving(false);
 
     updateUser({ name: name.trim(), bio: bio.trim(), avatarUrl: avatarUri });
-    router.push("/(auth)/interests");
+    router.navigate("/(auth)/interests");
   }, [name, bio, avatarUri, updateUser, router]);
 
   return (
@@ -141,7 +141,7 @@ export default function CompleteProfileScreen() {
         variant="ghost"
         fullWidth
         style={styles.skip}
-        onPress={() => router.push("/(auth)/interests")}
+        onPress={() => router.navigate("/(auth)/interests")}
       />
     </Screen>
   );

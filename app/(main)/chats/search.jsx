@@ -6,7 +6,7 @@ import { FlatList, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import spacing from "../../../constants/spacing";
 import useChatStore from "../../../stores/chatStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { EmptyState, Input } from "../../../components/ui";
 import ConversationRow from "../../../components/chats/ConversationRow";
 
@@ -36,8 +36,7 @@ export default function ChatSearchScreen() {
   }, [conversations, query]);
 
   return (
-    <View style={styles.container}>
-      <Header title="Search chats" showBack />
+    <Screen padded={false} header={<Header title="Search chats" showBack />}>
 
       <View style={styles.searchWrap}>
         <Input
@@ -58,7 +57,7 @@ export default function ChatSearchScreen() {
             conversation={item}
             onPress={(c) => {
               setActiveConversation(c.id);
-              router.push(`/(main)/chats/${c.id}`);
+              router.navigate(`/(main)/chats/${c.id}`);
             }}
           />
         )}
@@ -76,14 +75,11 @@ export default function ChatSearchScreen() {
           />
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   searchWrap: {
     paddingHorizontal: spacing.screenHorizontal,
     paddingVertical: spacing.md,

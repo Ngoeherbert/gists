@@ -36,52 +36,44 @@ export default function SettingsScreen() {
   const showToast = useAppStore((s) => s.showToast);
 
   return (
-    <View style={styles.container}>
-      <Header title="Settings" showBack />
-
-      <Screen scroll padded={false}>
-        <View style={styles.body}>
-          {GROUPS.map((group, groupIndex) => (
-            <Card key={groupIndex} padding="none" style={styles.group}>
-              {group.map((item, index) => (
-                <React.Fragment key={item.route}>
-                  {index > 0 ? <Divider inset={spacing.cardPadding} /> : null}
-                  <SettingsRow
-                    icon={item.icon}
-                    label={item.label}
-                    onPress={() => router.push(`/(main)/profile/settings/${item.route}`)}
-                  />
-                </React.Fragment>
-              ))}
-            </Card>
-          ))}
-
-          <Card padding="none" style={styles.group}>
-            <SettingsRow
-              icon="log-outline"
-              iconColor={colors.error}
-              label="Sign out"
-              tone="error"
-              showChevron={false}
-              onPress={async () => {
-                await logout();
-                showToast("Signed out", "info");
-                router.replace("/(auth)/welcome");
-              }}
-            />
+    <Screen scroll padded={false} header={<Header title="Settings" showBack />}>
+      <View style={styles.body}>
+        {GROUPS.map((group, groupIndex) => (
+          <Card key={groupIndex} padding="none" style={styles.group}>
+            {group.map((item, index) => (
+              <React.Fragment key={item.route}>
+                {index > 0 ? <Divider inset={spacing.cardPadding} /> : null}
+                <SettingsRow
+                  icon={item.icon}
+                  label={item.label}
+                  onPress={() => router.navigate(`/(main)/profile/settings/${item.route}`)}
+                />
+              </React.Fragment>
+            ))}
           </Card>
+        ))}
 
-          <View style={styles.spacer} />
-        </View>
-      </Screen>
-    </View>
+        <Card padding="none" style={styles.group}>
+          <SettingsRow
+            icon="log-outline"
+            iconColor={colors.error}
+            label="Sign out"
+            tone="error"
+            showChevron={false}
+            onPress={async () => {
+              await logout();
+              showToast("Signed out", "info");
+              router.replace("/(auth)/welcome");
+            }}
+          />
+        </Card>
+
+        <View style={styles.spacer} />
+      </View>
+    </Screen>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

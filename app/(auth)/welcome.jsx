@@ -38,7 +38,7 @@ export default function WelcomeScreen() {
           title="Create account"
           size="large"
           fullWidth
-          onPress={() => router.push("/(auth)/signup")}
+          onPress={() => router.navigate("/(auth)/signup")}
         />
         <Button
           title="I already have an account"
@@ -46,7 +46,7 @@ export default function WelcomeScreen() {
           size="large"
           fullWidth
           style={styles.secondary}
-          onPress={() => router.push("/(auth)/login")}
+          onPress={() => router.navigate("/(auth)/login")}
         />
 
         <Text variant="caption" color="tertiary" align="center" style={styles.legal}>

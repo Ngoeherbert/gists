@@ -12,10 +12,10 @@ const spacing = {
   huge: 40,
   massive: 48,
 
-  screenHorizontal: 16,
-  screenVertical: 16,
+  screenHorizontal: 12,
+  screenVertical: 12,
 
-  cardPadding: 16,
+  cardPadding: 12,
   sectionGap: 24,
 
   iconTextGap: 8,

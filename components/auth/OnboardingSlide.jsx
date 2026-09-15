@@ -33,12 +33,12 @@ export default function OnboardingSlide({
 
   const finish = () => {
     completeOnboarding();
-    router.push("/(onboarding)/get-started");
+    router.navigate("/(onboarding)/get-started");
   };
 
   const next = () => {
     setOnboardingSlide(index + 1);
-    router.push(`/(onboarding)/screen-${index + 2}`);
+    router.navigate(`/(onboarding)/screen-${index + 2}`);
   };
 
   return (

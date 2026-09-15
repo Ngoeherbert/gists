@@ -12,7 +12,7 @@ import spacing from "../../../constants/spacing";
 import useAppTheme from "../../../hooks/useAppTheme";
 import useReelStore from "../../../stores/reelStore";
 import useAppStore from "../../../stores/appStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Button, Text } from "../../../components/ui";
 
 const TOOLS = [
@@ -40,8 +40,7 @@ export default function ReelEditorScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <Header title="Edit reel" showBack />
+    <Screen padded={false} header={<Header title="Edit reel" showBack />}>
 
       <View style={styles.stage}>
         <View
@@ -98,17 +97,14 @@ export default function ReelEditorScreen() {
           iconPosition="right"
           size="large"
           fullWidth
-          onPress={() => router.push("/(main)/reels/preview")}
+          onPress={() => router.navigate("/(main)/reels/preview")}
         />
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   stage: {
     flex: 1,
     padding: spacing.screenHorizontal,

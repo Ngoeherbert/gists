@@ -17,10 +17,7 @@ export default function AboutSettingsScreen() {
   const { theme } = useAppTheme();
 
   return (
-    <View style={styles.container}>
-      <Header title="About" showBack />
-
-      <Screen scroll padded={false}>
+    <Screen header={<Header title="About" showBack />} scroll padded={false}>
         <View style={styles.body}>
           <View style={styles.brand}>
             <View style={[styles.logo, { backgroundColor: theme.colors.primary }]}>
@@ -40,16 +37,12 @@ export default function AboutSettingsScreen() {
             <SettingsRow label="Scheme" value={config.app.scheme} showChevron={false} />
             <SettingsRow label="Environment" value={config.development.debug ? "debug" : "production"} showChevron={false} />
           </Card>
-        </View>
-      </Screen>
     </View>
+        </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

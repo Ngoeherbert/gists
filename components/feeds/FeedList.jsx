@@ -31,7 +31,7 @@ export default function FeedList({ feed = "home", fetchPage, emptyProps }) {
   useEffect(() => {
     if (ids.length === 0 && !feedState?.isLoading) load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [feed]);
 
   const renderItem = useCallback(({ item }) => <PostCard post={item} />, []);
 
@@ -63,7 +63,7 @@ export default function FeedList({ feed = "home", fetchPage, emptyProps }) {
       }
       onEndReachedThreshold={0.4}
       onEndReached={() => {
-        if (feedState?.hasMore) load(false);
+        if (feedState?.hasMore && !feedState?.isLoading) load(false);
       }}
       refreshControl={
         <RefreshControl

@@ -35,6 +35,21 @@ export default function StoryViewerScreen() {
 
   const progress = useRef(new Animated.Value(0)).current;
 
+  // Track whether the current press is a long-press so its release resumes
+  // playback exactly once; short taps must never toggle pause.
+  const isLongPress = useRef(false);
+
+  const handleLongPress = useCallback(() => {
+    isLongPress.current = true;
+    togglePause();
+  }, [togglePause]);
+
+  const handlePressOut = useCallback(() => {
+    if (!isLongPress.current) return;
+    isLongPress.current = false;
+    togglePause();
+  }, [togglePause]);
+
   // Open the requested group when arriving with route params.
   useEffect(() => {
     if (groupId && viewerGroupId !== groupId) {
@@ -103,15 +118,21 @@ export default function StoryViewerScreen() {
       {/* Tap zones: left half = previous, right half = next. */}
       <Pressable
         style={styles.tapLeft}
+        onPressIn={() => {
+          isLongPress.current = false;
+        }}
         onPress={prevStory}
-        onLongPress={togglePause}
-        onPressOut={togglePause}
+        onLongPress={handleLongPress}
+        onPressOut={handlePressOut}
       />
       <Pressable
         style={styles.tapRight}
+        onPressIn={() => {
+          isLongPress.current = false;
+        }}
         onPress={nextStory}
-        onLongPress={togglePause}
-        onPressOut={togglePause}
+        onLongPress={handleLongPress}
+        onPressOut={handlePressOut}
       />
 
       {/* Progress bars */}

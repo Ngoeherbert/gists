@@ -14,10 +14,7 @@ export default function BlockedAccountsScreen() {
   const toggleBlock = useProfileStore((s) => s.toggleBlock);
 
   return (
-    <View style={styles.container}>
-      <Header title="Blocked accounts" showBack />
-
-      <Screen scroll padded={false}>
+    <Screen header={<Header title="Blocked accounts" showBack />} scroll padded={false}>
         {blocked.length === 0 ? (
           <EmptyState
             icon="ban-outline"
@@ -39,14 +36,10 @@ export default function BlockedAccountsScreen() {
           </View>
         )}
       </Screen>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   list: {
     padding: 16,
   },

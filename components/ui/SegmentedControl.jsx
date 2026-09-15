@@ -74,10 +74,13 @@ export default function SegmentedControl({
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.scrollContent}
-      style={{
-        borderBottomColor: isDark ? colors.border : theme.colors.border,
-        borderBottomWidth: layout.borderWidth.thin,
-      }}
+      style={[
+        {
+          borderBottomColor: isDark ? colors.border : theme.colors.border,
+          borderBottomWidth: layout.borderWidth.thin,
+        },
+        style,
+      ]}
     >
       {body}
     </ScrollView>

@@ -14,7 +14,7 @@ import spacing from "../../../constants/spacing";
 import useAppTheme from "../../../hooks/useAppTheme";
 import useStoryStore from "../../../stores/storyStore";
 import useAppStore from "../../../stores/appStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Button, Input, Text } from "../../../components/ui";
 
 export default function CreateStoryScreen() {
@@ -54,7 +54,7 @@ export default function CreateStoryScreen() {
         mediaType: media.type === "video" ? "video" : "image",
         caption: caption.trim(),
         createdAt: new Date().toISOString(),
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       },
     });
     setIsSaving(false);
@@ -68,8 +68,7 @@ export default function CreateStoryScreen() {
   }, [media, caption, publishStory, showToast, router]);
 
   return (
-    <View style={styles.container}>
-      <Header title="New story" showBack />
+    <Screen padded={false} header={<Header title="New story" showBack />}>
 
       <View style={styles.body}>
         <Pressable
@@ -115,14 +114,11 @@ export default function CreateStoryScreen() {
           onPress={publish}
         />
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     flex: 1,
     padding: spacing.screenHorizontal,

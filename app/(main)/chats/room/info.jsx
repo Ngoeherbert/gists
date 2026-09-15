@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import colors from "../../../../constants/colors";
 import layout from "../../../../constants/layout";
 import spacing from "../../../../constants/spacing";
@@ -29,10 +30,7 @@ export default function RoomInfoScreen() {
   const participants = room?.participants ?? [];
 
   return (
-    <View style={styles.container}>
-      <Header title="Room info" showBack />
-
-      <Screen scroll padded={false}>
+    <Screen header={<Header title="Room info" showBack />} scroll padded={false}>
         <View style={styles.body}>
           <Card padding="medium" style={styles.group}>
             <Text variant="bodyMedium" style={styles.sectionTitle}>
@@ -89,8 +87,13 @@ export default function RoomInfoScreen() {
           <Card padding="none">
             <Pressable
               style={styles.row}
-              onPress={() => {
-                showToast("Invite link copied", "success");
+              onPress={async () => {
+                try {
+                  await Clipboard.setStringAsync(`gists://room/${id}`);
+                  showToast("Invite link copied", "success");
+                } catch {
+                  showToast("Couldn't copy the invite link", "error");
+                }
               }}
             >
               <Ionicons
@@ -123,16 +126,12 @@ export default function RoomInfoScreen() {
               </Text>
             </Pressable>
           </Card>
-        </View>
-      </Screen>
     </View>
+        </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

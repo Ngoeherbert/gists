@@ -12,7 +12,7 @@ import spacing from "../../../constants/spacing";
 import useAppTheme from "../../../hooks/useAppTheme";
 import useStoryStore from "../../../stores/storyStore";
 import useAppStore from "../../../stores/appStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Button, Input, Text } from "../../../components/ui";
 
 const TOOLS = [
@@ -32,24 +32,27 @@ export default function EditStoryScreen() {
 
   const [caption, setCaption] = useState(draft?.caption ?? "");
 
-  return (
-    <View style={styles.container}>
-      <Header
-        title="Edit story"
-        showBack
-        right={
-          <Button
-            title="Done"
-            size="small"
-            onPress={() => {
-              updateDraft({ caption: caption.trim() });
-              showToast("Story updated", "success");
-              router.back();
-            }}
-          />
-        }
-      />
-
+return (
+    <Screen
+      padded={false}
+      header={
+        <Header
+          title="Edit story"
+          showBack
+          right={
+            <Button
+              title="Done"
+              size="small"
+              onPress={() => {
+                updateDraft({ caption: caption.trim() });
+                showToast("Story updated", "success");
+                router.back();
+              }}
+            />
+          }
+        />
+      }
+    >
       <View style={styles.stage}>
         <View
           style={[
@@ -89,14 +92,11 @@ export default function EditStoryScreen() {
           maxLength={config.limits.maxStoryTextLength}
         />
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   stage: {
     flex: 1,
     padding: spacing.screenHorizontal,

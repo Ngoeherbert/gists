@@ -14,7 +14,7 @@ import useAppTheme from "../../../hooks/useAppTheme";
 import useAuthStore from "../../../stores/authStore";
 import useProfileStore from "../../../stores/profileStore";
 import useAppStore from "../../../stores/appStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Avatar, Button, Input, Text } from "../../../components/ui";
 import { validateName, validateUsername } from "../../../utils/validators";
 
@@ -24,13 +24,17 @@ export default function EditProfileScreen() {
 
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
+  const me = useProfileStore((s) => s.me);
   const saveProfile = useProfileStore((s) => s.saveProfile);
   const showToast = useAppStore((s) => s.showToast);
 
-  const [avatarUri, setAvatarUri] = useState(user?.avatarUrl ?? null);
-  const [name, setName] = useState(user?.name ?? "");
-  const [username, setUsername] = useState(user?.username ?? "");
-  const [bio, setBio] = useState(user?.bio ?? "");
+  // Prefer the complete profileStore record over the (possibly partial) auth user.
+  const profile = me || user;
+
+  const [avatarUri, setAvatarUri] = useState(profile?.avatarUrl ?? null);
+  const [name, setName] = useState(profile?.name ?? "");
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [bio, setBio] = useState(profile?.bio ?? "");
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,23 +68,29 @@ export default function EditProfileScreen() {
       bio: bio.trim(),
       avatarUrl: avatarUri,
     };
-    await saveProfile({ patch });
-    updateUser(patch);
-    setIsSaving(false);
-
-    showToast("Profile updated", "success");
-    router.back();
+    try {
+      const saved = await saveProfile({ patch });
+      if (!saved) {
+        showToast("Couldn't save your profile", "error");
+        return;
+      }
+      updateUser(patch);
+      showToast("Profile updated", "success");
+      router.back();
+    } catch (error) {
+      showToast(error?.message || "Couldn't save your profile", "error");
+    } finally {
+      setIsSaving(false);
+    }
   }, [name, username, bio, avatarUri, saveProfile, updateUser, showToast, router]);
 
   return (
-    <View style={styles.container}>
-      <Header
-        title="Edit profile"
+    <Screen padded={false} header={<Header title="Edit profile"
         showBack
         right={<Button title="Save" size="small" loading={isSaving} onPress={save} />}
-      />
-
+      />}>
       <View style={styles.body}>
+
         <View style={styles.avatarBlock}>
           <Pressable onPress={pickAvatar} style={styles.avatarPress}>
             <Avatar uri={avatarUri} name={name || username} size="xxl" />
@@ -126,14 +136,11 @@ export default function EditProfileScreen() {
           Changes are saved to your profile immediately.
         </Text>
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

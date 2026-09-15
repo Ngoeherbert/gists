@@ -2,8 +2,8 @@
 // Conversation details: participants, media, and per-chat controls.
 
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Switch, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { Alert, Pressable, StyleSheet, Switch, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "../../../constants/colors";
 import layout from "../../../constants/layout";
@@ -16,6 +16,7 @@ import { Avatar, Card, Divider, Text } from "../../../components/ui";
 
 export default function ChatInfoScreen() {
   const { id } = useLocalSearchParams();
+  const router = useRouter();
   const { theme } = useAppTheme();
   const showToast = useAppStore((s) => s.showToast);
 
@@ -31,12 +32,28 @@ export default function ChatInfoScreen() {
 
   const participants = conversation?.participants ?? [];
 
-  return (
-    <View style={styles.container}>
-      <Header title="Chat info" showBack />
+  const confirmDeleteChat = () => {
+    Alert.alert(
+      "Delete chat?",
+      "This conversation and its messages will be removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            removeConversation(id);
+            showToast("Chat deleted", "success");
+            router.back();
+          },
+        },
+      ]
+    );
+  };
 
-      <Screen scroll padded={false}>
-        <View style={styles.body}>
+  return (
+    <Screen scroll padded={false} header={<Header title="Chat info" showBack />}>
+      <View style={styles.body}>
           <View style={styles.hero}>
             <Avatar
               uri={participants[0]?.avatarUrl}
@@ -102,10 +119,7 @@ export default function ChatInfoScreen() {
             <Divider />
             <Pressable
               style={styles.row}
-              onPress={() => {
-                removeConversation(id);
-                showToast("Chat deleted", "success");
-              }}
+              onPress={confirmDeleteChat}
             >
               <Ionicons
                 name="trash-outline"
@@ -119,15 +133,11 @@ export default function ChatInfoScreen() {
             </Pressable>
           </Card>
         </View>
-      </Screen>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

@@ -12,7 +12,7 @@ import useAppTheme from "../../../hooks/useAppTheme";
 import useChatStore from "../../../stores/chatStore";
 import useProfileStore from "../../../stores/profileStore";
 import useAppStore from "../../../stores/appStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Avatar, Button, Chip, EmptyState, Input, Text } from "../../../components/ui";
 
 export default function NewGistScreen() {
@@ -54,8 +54,7 @@ export default function NewGistScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Header title="New gist" showBack />
+    <Screen padded={false} header={<Header title="New gist" showBack />}>
 
       <View style={styles.body}>
         <Input
@@ -133,14 +132,11 @@ export default function NewGistScreen() {
           onPress={start}
         />
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     flex: 1,
     paddingHorizontal: spacing.screenHorizontal,

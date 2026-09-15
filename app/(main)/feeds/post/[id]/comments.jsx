@@ -22,7 +22,7 @@ import typography from "../../../../../constants/typography";
 import useAppTheme from "../../../../../hooks/useAppTheme";
 import useFeedStore from "../../../../../stores/feedStore";
 import useAppStore from "../../../../../stores/appStore";
-import { Header } from "../../../../../components/common";
+import { Header, Screen } from "../../../../../components/common";
 import { Avatar, EmptyState, IconButton } from "../../../../../components/ui";
 import CommentRow from "../../../../../components/feeds/CommentRow";
 import useAuthStore from "../../../../../stores/authStore";
@@ -64,11 +64,11 @@ export default function CommentsScreen() {
   }, [draft, id, addComment, user, showToast]);
 
   return (
-    <KeyboardAvoidingView
+    <Screen
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      padded={false}
+      header={<Header title="Comments" subtitle={`${comments.length}`} showBack />}
     >
-      <Header title="Comments" subtitle={`${comments.length}`} showBack />
 
       <FlatList
         data={comments}
@@ -132,7 +132,7 @@ export default function CommentsScreen() {
           onPress={send}
         />
       </View>
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }
 

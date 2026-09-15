@@ -27,10 +27,7 @@ export default function RoomGamesScreen() {
   const showToast = useAppStore((s) => s.showToast);
 
   return (
-    <View style={styles.container}>
-      <Header title="Games" showBack />
-
-      <Screen scroll padded={false}>
+    <Screen header={<Header title="Games" showBack />} scroll padded={false}>
         <View style={styles.body}>
           {GAMES.map((game) => (
             <Card
@@ -54,16 +51,12 @@ export default function RoomGamesScreen() {
               </View>
             </Card>
           ))}
-        </View>
-      </Screen>
     </View>
+        </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

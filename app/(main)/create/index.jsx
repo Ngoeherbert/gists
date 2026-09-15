@@ -58,54 +58,52 @@ export default function CreateHubScreen() {
   const { theme, isDark } = useAppTheme();
 
   return (
-    <View style={styles.container}>
-      <Header title="Create" showBack centerTitle />
-
-      <Screen scroll padded={false} style={styles.body}>
-        <View style={styles.list}>
-          {OPTIONS.map((option) => {
-            const disabled = !option.enabled;
-            return (
-              <Card
-                key={option.key}
-                pressable={!disabled}
-                onPress={disabled ? undefined : () => router.push(option.route)}
-                padding="large"
-                style={[styles.card, disabled && styles.disabled]}
-              >
-                <View style={styles.row}>
-                  <View
-                    style={[styles.iconWrap, { backgroundColor: `${option.accent}1A` }]}
-                  >
-                    <Ionicons name={option.icon} size={layout.iconSize.lg} color={option.accent} />
-                  </View>
-
-                  <View style={styles.text}>
-                    <Text variant="bodyMedium">{option.title}</Text>
-                    <Text variant="bodySmall" color="secondary_text">
-                      {option.description}
-                    </Text>
-                  </View>
-
-                  <Ionicons
-                    name="chevron-forward"
-                    size={layout.iconSize.md}
-                    color={theme.text.tertiary}
-                  />
+    <Screen
+      scroll
+      padded={false}
+      style={styles.body}
+      header={<Header title="Create" showBack centerTitle />}
+    >
+      <View style={styles.list}>
+        {OPTIONS.map((option) => {
+          const disabled = !option.enabled;
+          return (
+            <Card
+              key={option.key}
+              pressable={!disabled}
+              onPress={disabled ? undefined : () => router.navigate(option.route)}
+              padding="large"
+              style={[styles.card, disabled && styles.disabled]}
+            >
+              <View style={styles.row}>
+                <View
+                  style={[styles.iconWrap, { backgroundColor: `${option.accent}1A` }]}
+                >
+                  <Ionicons name={option.icon} size={layout.iconSize.lg} color={option.accent} />
                 </View>
-              </Card>
-            );
-          })}
-        </View>
-      </Screen>
-    </View>
+
+                <View style={styles.text}>
+                  <Text variant="bodyMedium">{option.title}</Text>
+                  <Text variant="bodySmall" color="secondary_text">
+                    {option.description}
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="chevron-forward"
+                  size={layout.iconSize.md}
+                  color={theme.text.tertiary}
+                />
+              </View>
+            </Card>
+          );
+        })}
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     paddingHorizontal: 0,
   },

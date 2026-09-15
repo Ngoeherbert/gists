@@ -2,7 +2,7 @@
 // Gists AI assistant chat. Messages live in chatStore.ai; replies are stubbed
 // until an AI provider is wired in.
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -20,7 +20,7 @@ import spacing from "../../../constants/spacing";
 import typography from "../../../constants/typography";
 import useAppTheme from "../../../hooks/useAppTheme";
 import useChatStore from "../../../stores/chatStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { EmptyState, IconButton, Text } from "../../../components/ui";
 import MessageBubble from "../../../components/chats/MessageBubble";
 
@@ -42,6 +42,22 @@ export default function AiChatScreen() {
 
   const [draft, setDraft] = useState("");
 
+  // Track the pending reply timeout so it can be cancelled on refresh/unmount.
+  const replyTimeoutRef = useRef(null);
+
+  const cancelPendingReply = useCallback(() => {
+    if (replyTimeoutRef.current) {
+      clearTimeout(replyTimeoutRef.current);
+      replyTimeoutRef.current = null;
+    }
+    setAiThinking(false);
+  }, [setAiThinking]);
+
+  // Never let a delayed reply update the store after we leave the screen.
+  useEffect(() => {
+    return () => cancelPendingReply();
+  }, [cancelPendingReply]);
+
   const messages = (ai.thread.ids ?? []).map((id) => ai.thread.byId[id]).filter(Boolean);
 
   const send = useCallback(
@@ -59,7 +75,8 @@ export default function AiChatScreen() {
 
       setAiThinking(true);
       // Placeholder reply until a real provider is connected.
-      setTimeout(() => {
+      replyTimeoutRef.current = setTimeout(() => {
+        replyTimeoutRef.current = null;
         appendAiMessage({
           id: `ai-${Date.now()}-reply`,
           text: "I'm not connected to a model yet — wire up a provider in the AI chat store to get real answers.",
@@ -73,16 +90,24 @@ export default function AiChatScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
+    <Screen
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
-      <Header
+      padded={false}
+      header={<Header
         title="Gists AI"
         subtitle="Your assistant"
         showBack
-        right={<IconButton name="refresh-outline" onPress={clearAiThread} />}
-      />
+        right={
+          <IconButton
+            name="refresh-outline"
+            onPress={() => {
+              cancelPendingReply();
+              clearAiThread();
+            }}
+          />
+        }
+      />}
+    >
 
       <FlatList
         data={messages}
@@ -167,7 +192,7 @@ export default function AiChatScreen() {
           onPress={() => send()}
         />
       </View>
-    </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
@@ -200,7 +225,7 @@ const styles = StyleSheet.create({
   composer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.screenHorizontal,
     paddingTop: spacing.sm,
     borderTopWidth: layout.borderWidth.thin,
   },

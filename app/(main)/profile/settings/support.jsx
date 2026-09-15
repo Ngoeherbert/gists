@@ -2,11 +2,21 @@
 // Help & support: FAQ entry, report a problem and contact links.
 
 import React from "react";
+import { Linking } from "react-native";
 import useAppStore from "../../../../stores/appStore";
 import SettingsScreen from "../../../../components/profile/SettingsScreen";
 
 export default function SupportSettingsScreen() {
   const showToast = useAppStore((s) => s.showToast);
+
+  const openLegalDocument = (url, openingMessage, failureMessage) => async () => {
+    try {
+      await Linking.openURL(url);
+      showToast(openingMessage, "info");
+    } catch {
+      showToast(failureMessage, "error");
+    }
+  };
 
   return (
     <SettingsScreen
@@ -40,13 +50,21 @@ export default function SupportSettingsScreen() {
               key: "terms",
               icon: "document-text-outline",
               label: "Terms of service",
-              onPress: () => showToast("Opening terms…", "info"),
+              onPress: openLegalDocument(
+                "https://gists.app/terms",
+                "Opening terms…",
+                "Couldn't open the Terms of service"
+              ),
             },
             {
               key: "privacy",
               icon: "lock-closed-outline",
               label: "Privacy policy",
-              onPress: () => showToast("Opening privacy policy…", "info"),
+              onPress: openLegalDocument(
+                "https://gists.app/privacy",
+                "Opening privacy policy…",
+                "Couldn't open the Privacy policy"
+              ),
             },
           ],
         },

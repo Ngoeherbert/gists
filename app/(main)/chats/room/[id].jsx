@@ -23,7 +23,6 @@ export default function RoomScreen() {
   const room = useChatStore((s) => s.rooms[id]);
   const upsertRoom = useChatStore((s) => s.upsertRoom);
   const setActiveRoom = useChatStore((s) => s.setActiveRoom);
-  const setActiveGame = useChatStore((s) => s.setActiveGame);
   const showToast = useAppStore((s) => s.showToast);
 
   useEffect(() => {
@@ -45,91 +44,93 @@ export default function RoomScreen() {
   const participants = room?.participants ?? [];
 
   return (
-    <View style={styles.container}>
-      <Header
-        title={room?.name || "Gist room"}
-        subtitle={`${participants.length} in the room`}
-        showBack
-        right={
-          <IconButton name="information-circle-outline" onPress={() => router.push("/(main)/chats/room/info")} />
-        }
-      />
-
-      <Screen scroll padded={false}>
-        <View style={styles.body}>
-          {/* Shared stage */}
-          <View
-            style={[
-              styles.stage,
-              { backgroundColor: isDark ? colors.surface : theme.app.surface },
-            ]}
-          >
-            <Ionicons name="tv-outline" size={layout.iconSize.huge} color={theme.text.muted} />
-            <Text variant="bodySmall" color="tertiary" style={styles.stageLabel}>
-              {room?.media ? "Playing together" : "Nothing playing yet"}
-            </Text>
-          </View>
-
-          <View style={styles.actions}>
-            <Button
-              title="Watch together"
-              icon="play-outline"
-              variant="outline"
-              fullWidth
-              onPress={() => showToast("Watch parties aren't wired up yet", "info")}
-              style={styles.actionButton}
+    <Screen
+      scroll
+      padded={false}
+      header={
+        <Header
+          title={room?.name || "Gist room"}
+          subtitle={`${participants.length} in the room`}
+          showBack
+          right={
+            <IconButton
+              name="information-circle-outline"
+              onPress={() => router.navigate(`/(main)/chats/room/info?id=${id}`)}
             />
-            <Button
-              title="Play a game"
-              icon="game-controller-outline"
-              variant="outline"
-              fullWidth
-              onPress={() => router.push("/(main)/chats/room/games")}
-              style={styles.actionButton}
-            />
-          </View>
-
-          <Card padding="medium">
-            <Text variant="bodyMedium" style={styles.sectionTitle}>
-              In the room
-            </Text>
-
-            {participants.length === 0 ? (
-              <EmptyState
-                compact
-                icon="people-outline"
-                title="It's just you"
-                description="Invite friends to join this room."
-              />
-            ) : (
-              participants.map((participant) => (
-                <Pressable
-                  key={participant.id}
-                  style={styles.participant}
-                  onPress={() => setActiveGame(participant.id)}
-                >
-                  <Avatar
-                    uri={participant.avatarUrl}
-                    name={participant.name || participant.username}
-                    size="sm"
-                  />
-                  <Text variant="bodySmall" style={styles.participantName}>
-                    {participant.name || participant.username}
-                  </Text>
-                </Pressable>
-              ))
-            )}
-          </Card>
+          }
+        />
+      }
+    >
+      <View style={styles.body}>
+        {/* Shared stage */}
+        <View
+          style={[
+            styles.stage,
+            { backgroundColor: isDark ? colors.surface : theme.app.surface },
+          ]}
+        >
+          <Ionicons name="tv-outline" size={layout.iconSize.huge} color={theme.text.muted} />
+          <Text variant="bodySmall" color="tertiary" style={styles.stageLabel}>
+            {room?.media ? "Playing together" : "Nothing playing yet"}
+          </Text>
         </View>
-      </Screen>
-    </View>
+
+        <View style={styles.actions}>
+          <Button
+            title="Watch together"
+            icon="play-outline"
+            variant="outline"
+            fullWidth
+            onPress={() => showToast("Watch parties aren't wired up yet", "info")}
+            style={styles.actionButton}
+          />
+          <Button
+            title="Play a game"
+            icon="game-controller-outline"
+            variant="outline"
+            fullWidth
+            onPress={() => router.navigate("/(main)/chats/room/games")}
+            style={styles.actionButton}
+          />
+        </View>
+
+        <Card padding="medium">
+          <Text variant="bodyMedium" style={styles.sectionTitle}>
+            In the room
+          </Text>
+
+          {participants.length === 0 ? (
+            <EmptyState
+              compact
+              icon="people-outline"
+              title="It's just you"
+              description="Invite friends to join this room."
+            />
+          ) : (
+            participants.map((participant) => (
+              <Pressable
+                key={participant.id}
+                style={styles.participant}
+                onPress={() => router.navigate(`/profile/${participant.id}`)}
+              >
+                <Avatar
+                  uri={participant.avatarUrl}
+                  name={participant.name || participant.username}
+                  size="sm"
+                />
+                <Text variant="bodySmall" style={styles.participantName}>
+                  {participant.name || participant.username}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </Card>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

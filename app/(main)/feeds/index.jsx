@@ -7,7 +7,7 @@ import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import useNotificationStore from "../../../stores/notificationStore";
 import { Badge, IconButton, SegmentedControl } from "../../../components/ui";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import FeedList from "../../../components/feeds/FeedList";
 
 const SEGMENTS = [
@@ -20,32 +20,40 @@ export default function FeedsScreen() {
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const [feed, setFeed] = useState("home");
 
-  return (
-    <View style={styles.container}>
-      <Header
-        title="Gists"
-        right={
-          <View style={styles.headerRight}>
-            <View>
+return (
+    <Screen
+      padded={false}
+      header={
+        <Header
+          title="Gists"
+          right={
+            <View style={styles.headerRight}>
+              <View>
+                <IconButton
+                  name="notifications-outline"
+                  onPress={() => router.navigate("/(main)/feeds/notifications")}
+                />
+                {unreadCount > 0 ? (
+                  <View style={styles.badge}>
+                    <Badge count={unreadCount} tone="error" />
+                  </View>
+                ) : null}
+              </View>
               <IconButton
-                name="notifications-outline"
-                onPress={() => router.push("/(main)/feeds/notifications")}
+                name="add"
+                onPress={() => router.navigate("/(main)/create")}
               />
-              {unreadCount > 0 ? (
-                <View style={styles.badge}>
-                  <Badge count={unreadCount} tone="error" />
-                </View>
-              ) : null}
             </View>
-            <IconButton
-              name="add"
-              onPress={() => router.push("/(main)/create")}
-            />
-          </View>
-        }
+          }
+        />
+      }
+    >
+      <SegmentedControl
+        segments={SEGMENTS}
+        value={feed}
+        onChange={setFeed}
+        style={{ paddingHorizontal: spacing.screenHorizontal }}
       />
-
-      <SegmentedControl segments={SEGMENTS} value={feed} onChange={setFeed} />
 
       <FeedList
         feed={feed}
@@ -66,14 +74,11 @@ export default function FeedsScreen() {
               }
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",

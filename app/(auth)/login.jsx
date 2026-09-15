@@ -98,7 +98,7 @@ export default function LoginScreen() {
         variant="link"
         size="small"
         style={styles.forgot}
-        onPress={() => router.push("/(auth)/forgot-password")}
+        onPress={() => router.navigate("/(auth)/forgot-password")}
       />
 
       {authError ? (
@@ -126,7 +126,7 @@ export default function LoginScreen() {
           title="Sign up"
           variant="link"
           size="small"
-          onPress={() => router.push("/(auth)/signup")}
+          onPress={() => router.navigate("/(auth)/signup")}
         />
       </View>
     </Screen>

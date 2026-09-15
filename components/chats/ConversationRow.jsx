@@ -26,7 +26,7 @@ function timeLabel(ts) {
   return date.toLocaleDateString([], { day: "2-digit", month: "short" });
 }
 
-function ConversationRow({ conversation, onPress }) {
+function ConversationRow({ conversation, muted = false, onPress }) {
   const { theme } = useAppTheme();
   if (!conversation) return null;
 
@@ -107,7 +107,7 @@ function ConversationRow({ conversation, onPress }) {
           )}
 
           <View style={styles.trailing}>
-            {conversation.isMuted ? (
+            {muted ? (
               <Ionicons
                 name="notifications-off-outline"
                 size={layout.iconSize.sm}

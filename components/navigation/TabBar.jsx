@@ -35,8 +35,14 @@ export default function TabBar({ state, descriptors, navigation }) {
         const { options } = descriptors[route.key];
         const isFocused = state.index === index;
 
+        const tintColor = isFocused ? theme.colors.primary : theme.text.tertiary;
+
         const iconName = options.tabBarIcon
-          ? options.tabBarIcon({ focused: isFocused, color: "", size: 0 })
+          ? options.tabBarIcon({
+              focused: isFocused,
+              color: tintColor,
+              size: layout.iconSize.lg,
+            })
           : null;
         const label = options.title ?? route.name;
 
@@ -52,8 +58,6 @@ export default function TabBar({ state, descriptors, navigation }) {
             navigation.navigate(route.name, route.params);
           }
         };
-
-        const tintColor = isFocused ? theme.colors.primary : theme.text.tertiary;
 
         return (
           <Pressable

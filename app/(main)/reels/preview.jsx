@@ -62,10 +62,7 @@ export default function ReelPreviewScreen() {
   }, [draft, caption, audience, publishReel, user, showToast, router]);
 
   return (
-    <View style={styles.container}>
-      <Header title="Preview" showBack />
-
-      <Screen scroll padded={false}>
+    <Screen header={<Header title="Preview" showBack />} scroll padded={false}>
         <View style={styles.body}>
           <View
             style={[
@@ -113,15 +110,11 @@ export default function ReelPreviewScreen() {
             onPress={publish}
           />
         </View>
-      </Screen>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },

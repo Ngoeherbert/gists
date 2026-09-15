@@ -8,7 +8,7 @@ import spacing from "../../../constants/spacing";
 import useFeedStore from "../../../stores/feedStore";
 import useAppStore from "../../../stores/appStore";
 import useAuthStore from "../../../stores/authStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import PostComposer from "../../../components/feeds/PostComposer";
 
 export default function CreatePostScreen() {
@@ -49,8 +49,7 @@ export default function CreatePostScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <Header title="New post" showBack />
+    <Screen padded={false} header={<Header title="New post" showBack />}>
 
       <View style={styles.body}>
         <PostComposer
@@ -61,14 +60,11 @@ export default function CreatePostScreen() {
           onSubmit={handleSubmit}
         />
       </View>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     flex: 1,
     padding: spacing.screenHorizontal,

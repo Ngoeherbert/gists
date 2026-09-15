@@ -22,7 +22,7 @@ function UserRow({ user }) {
   return (
     <Pressable
       style={styles.row}
-      onPress={() => router.push(`/(main)/profile/${user.id}`)}
+      onPress={() => router.navigate(`/profile/${user.id}`)}
     >
       <Avatar
         uri={user.avatarUrl}

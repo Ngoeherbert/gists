@@ -4,7 +4,7 @@
 // expects, and the stores fall back to these when no provider is supplied.
 //
 // Swap in a real client at any time:
-//   useFeedStore.getState().setProviders({ fetchPage: api.getFeed })
+//   useFeedStore.getState().setProviders({ feed: api.getFeed })
 // or per call: fetchFeed({ fetchPage: api.getFeed })
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -190,9 +190,10 @@ export function makeNotifications(count = 18, offset = 0) {
 }
 
 export function makeProfile(userId, extra = {}) {
-  const person =
-    Object.values(PEOPLE).find((p) => p.id === userId) ||
-    Object.values(PEOPLE)[0];
+  // Unknown ids (deep links, removed users) yield the established not-found
+  // result instead of another person's profile.
+  const person = Object.values(PEOPLE).find((p) => p.id === userId);
+  if (!person) return null;
   return {
     ...person,
     bio: "Building things on the internet. Coffee-powered.",
@@ -218,7 +219,8 @@ export const reelProvider = async ({ cursor, limit = 20 } = {}) => {
   await wait(450);
   const offset = cursor ? Number(cursor) : 0;
   const items = makeReels(Math.min(limit, 12), offset);
-  const next = offset + limit < 36 ? String(offset + limit) : null;
+  // Advance the cursor by the reels actually returned, not the raw limit.
+  const next = offset + items.length < 36 ? String(offset + items.length) : null;
   return { items, nextCursor: next };
 };
 
@@ -246,14 +248,25 @@ export const conversationsProvider = async () => {
   return makeConversations();
 };
 
-export const messagesProvider = async ({ limit = 30 } = {}) => {
+export const messagesProvider = async ({ conversationId = "c", limit = 30 } = {}) => {
   await wait(400);
-  return { items: makeMessages("c", Math.min(limit, 15)), nextCursor: null };
+  return { items: makeMessages(conversationId, Math.min(limit, 15)), nextCursor: null };
 };
 
-export const notificationsProvider = async ({ limit = 20 } = {}) => {
+// Map the notificationStore filters ("mentions" | "follows" | "likes" |
+// "comments") to the type values makeNotifications generates.
+const NOTIFICATION_TYPE_BY_FILTER = {
+  mentions: "mention",
+  follows: "follow",
+  likes: "like",
+  comments: "comment",
+};
+
+export const notificationsProvider = async ({ limit = 20, filter = "all" } = {}) => {
   await wait(400);
-  const items = makeNotifications(limit);
+  const generated = makeNotifications(limit);
+  const type = NOTIFICATION_TYPE_BY_FILTER[filter];
+  const items = type ? generated.filter((n) => n.type === type) : generated;
   return {
     items,
     nextCursor: null,
@@ -266,12 +279,22 @@ export const profileListProvider = async ({ type, limit = 20 } = {}) => {
   if (type === "followers" || type === "following") {
     return { items: Object.values(PEOPLE), nextCursor: null };
   }
+  if (type === "reels") {
+    return { items: makeReels(Math.min(limit, 12)), nextCursor: null };
+  }
+  if (type === "likes" || type === "saved") {
+    const matches = (post) => (type === "likes" ? post.isLiked : post.isSaved);
+    const items = makePosts(60).filter(matches).slice(0, Math.min(limit, 12));
+    return { items, nextCursor: null };
+  }
   return { items: makePosts(Math.min(limit, 12)), nextCursor: null };
 };
 
 export const meProvider = async () => {
   await wait(300);
-  return makeProfile("u_me", { id: "u_me", name: "You", username: "you" });
+  // Base on a known profile now that makeProfile no longer falls back for
+  // unknown ids ("u_me" is not in PEOPLE).
+  return makeProfile(PEOPLE.ada.id, { id: "u_me", name: "You", username: "you" });
 };
 
 export const profileProvider = async (userId) => {

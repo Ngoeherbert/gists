@@ -48,12 +48,12 @@ function PostCard({ post }) {
   const incrementShare = useFeedStore((s) => s.incrementShare);
   const showToast = useAppStore((s) => s.showToast);
 
+  if (!post) return null;
+
   const openPost = useCallback(
-    () => router.push(`/(main)/feeds/post/${post.id}`),
+    () => router.navigate(`/(main)/feeds/post/${post.id}`),
     [router, post.id],
   );
-
-  if (!post) return null;
 
   const author = post.author || {};
   const likeCount = post.likesCount ?? post.likeCount ?? 0;
@@ -71,7 +71,7 @@ function PostCard({ post }) {
       <View style={styles.authorRow}>
         <Pressable
           style={styles.authorLeft}
-          onPress={() => router.push(`/(main)/profile/${author.id ?? "me"}`)}
+          onPress={() => router.navigate(`/profile/${author.id ?? "me"}`)}
         >
           <Avatar
             uri={author.avatarUrl}

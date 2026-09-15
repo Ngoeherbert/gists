@@ -1,46 +1,53 @@
-// app/(main)/profile/share.jsx
-// Shareable profile card: a QR placeholder plus copy-link and native share.
+// app/profile/share.jsx
+// Shareable profile card: copy-link and native share.
 
 import React from "react";
 import { Share, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import colors from "../../../constants/colors";
-import layout from "../../../constants/layout";
-import spacing from "../../../constants/spacing";
-import useAppTheme from "../../../hooks/useAppTheme";
-import useProfileStore from "../../../stores/profileStore";
-import useAuthStore from "../../../stores/authStore";
-import useAppStore from "../../../stores/appStore";
-import { Header, Screen } from "../../../components/common";
-import { Avatar, Button, Card, Text } from "../../../components/ui";
+import { useLocalSearchParams } from "expo-router";
+import * as Clipboard from "expo-clipboard";
+import spacing from "../../constants/spacing";
+import useProfileStore from "../../stores/profileStore";
+import useAuthStore from "../../stores/authStore";
+import useAppStore from "../../stores/appStore";
+import { Header, Screen } from "../../components/common";
+import { Avatar, Button, Card, Text } from "../../components/ui";
 
 export default function ShareProfileScreen() {
-  const { theme, isDark } = useAppTheme();
+  const { id } = useLocalSearchParams();
   const me = useProfileStore((s) => s.me);
+  const profiles = useProfileStore((s) => s.profiles);
   const user = useAuthStore((s) => s.user);
   const sharePayload = useProfileStore((s) => s.sharePayload);
   const showToast = useAppStore((s) => s.showToast);
 
-  const profile = me || user;
+  // Share the profile being displayed; fall back to the signed-in user.
+  const profile = (id && profiles[id]) || me || user;
   const payload = sharePayload() || {};
+  const url = payload.url || `gists://profile/${profile?.username || profile?.id || "you"}`;
 
   const nativeShare = async () => {
     try {
       await Share.share({
         title: payload.title,
-        message: `${payload.message}\n${payload.url}`,
-        url: payload.url,
+        message: `${payload.message}\n${url}`,
+        url,
       });
     } catch {
       showToast("Couldn't open the share sheet", "error");
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Header title="Share profile" showBack />
+  const copyLink = async () => {
+    try {
+      await Clipboard.setStringAsync(url);
+      showToast("Link copied", "success");
+    } catch {
+      showToast("Couldn't copy the link", "error");
+    }
+  };
 
-      <Screen scroll padded={false}>
+  return (
+    <Screen header={<Header title="Share profile" showBack />} scroll padded={false}>
         <View style={styles.body}>
           <Card padding="large" style={styles.card}>
             <Avatar
@@ -56,30 +63,13 @@ export default function ShareProfileScreen() {
                 @{profile.username}
               </Text>
             ) : null}
-
-            {/* QR placeholder — a real one needs a QR library. */}
-            <View
-              style={[
-                styles.qr,
-                {
-                  backgroundColor: isDark ? colors.surfaceLight : theme.app.surface,
-                  borderColor: isDark ? colors.border : theme.colors.border,
-                },
-              ]}
-            >
-              <Ionicons name="qr-code-outline" size={96} color={theme.text.muted} />
-            </View>
-
-            <Text variant="caption" color="tertiary" align="center">
-              Scan to open this profile
-            </Text>
           </Card>
 
           <Card padding="none" style={styles.linkCard}>
             <Text variant="bodySmall" color="secondary_text" style={styles.linkLabel}>
               Profile link
             </Text>
-            <Text variant="bodyMedium">{payload.url || "gists://profile/you"}</Text>
+            <Text variant="bodyMedium">{url}</Text>
           </Card>
 
           <Button
@@ -96,18 +86,14 @@ export default function ShareProfileScreen() {
             size="large"
             fullWidth
             style={styles.copy}
-            onPress={() => showToast("Link copied", "success")}
+            onPress={copyLink}
           />
         </View>
       </Screen>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   body: {
     padding: spacing.screenHorizontal,
   },
@@ -117,15 +103,6 @@ const styles = StyleSheet.create({
   },
   name: {
     marginTop: spacing.md,
-  },
-  qr: {
-    width: 200,
-    height: 200,
-    borderRadius: layout.borderRadius.lg,
-    borderWidth: layout.borderWidth.thin,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: spacing.xl,
   },
   linkCard: {
     padding: spacing.cardPadding,

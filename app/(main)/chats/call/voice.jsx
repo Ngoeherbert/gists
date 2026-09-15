@@ -29,6 +29,10 @@ export default function VoiceCallScreen() {
       const peer = conversation?.participants?.[0] || {};
       startCall({ kind: "voice", peer, callId: id ? `call-${id}` : undefined });
     }
+    return () => {
+      // Release stale call state when the call screen unmounts.
+      endCall();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

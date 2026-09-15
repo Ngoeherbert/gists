@@ -3,10 +3,13 @@
 
 import React from "react";
 import useAppStore from "../../../../stores/appStore";
+import useNotificationStore from "../../../../stores/notificationStore";
 import SettingsScreen from "../../../../components/profile/SettingsScreen";
 
 export default function PrivacySettingsScreen() {
   const showToast = useAppStore((s) => s.showToast);
+  const preferences = useNotificationStore((s) => s.preferences);
+  const setPreference = useNotificationStore((s) => s.setPreference);
 
   return (
     <SettingsScreen
@@ -20,7 +23,11 @@ export default function PrivacySettingsScreen() {
               label: "Private account",
               description: "Approve followers before they can see your posts",
               switch: true,
-              onChange: () => showToast("Privacy preference updated", "success"),
+              defaultValue: preferences.privateAccount,
+              onChange: (v) => {
+                setPreference("privateAccount", v);
+                showToast("Privacy preference updated", "success");
+              },
             },
             {
               key: "activity",
@@ -28,7 +35,11 @@ export default function PrivacySettingsScreen() {
               label: "Show activity status",
               description: "Let others see when you're online",
               switch: true,
-              defaultValue: true,
+              defaultValue: preferences.activityStatus,
+              onChange: (v) => {
+                setPreference("activityStatus", v);
+                showToast("Privacy preference updated", "success");
+              },
             },
             {
               key: "story",

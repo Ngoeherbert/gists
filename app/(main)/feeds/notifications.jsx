@@ -6,7 +6,7 @@ import { FlatList, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import spacing from "../../../constants/spacing";
 import useNotificationStore from "../../../stores/notificationStore";
-import { Header } from "../../../components/common";
+import { Header, Screen } from "../../../components/common";
 import { Button, EmptyState, Loading, SegmentedControl } from "../../../components/ui";
 import NotificationRow from "../../../components/feeds/NotificationRow";
 
@@ -33,24 +33,26 @@ export default function NotificationsScreen() {
   const openNotification = useCallback(
     (notification) => {
       markRead(notification.id);
-      if (notification.postId) router.push(`/(main)/feeds/post/${notification.postId}`);
-      else if (notification.actor?.id) router.push(`/(main)/profile/${notification.actor.id}`);
+      if (notification.postId) router.navigate(`/(main)/feeds/post/${notification.postId}`);
+      else if (notification.actor?.id) router.navigate(`/profile/${notification.actor.id}`);
     },
     [markRead, router]
   );
 
-  return (
-    <View style={styles.container}>
-      <Header
-        title="Activity"
-        showBack
-        right={
-          unreadCount > 0 ? (
-            <Button title="Mark all read" variant="link" size="small" onPress={markAllRead} />
-          ) : null
-        }
-      />
-
+return (
+    <Screen
+      header={
+        <Header
+          title="Activity"
+          showBack
+          right={
+            unreadCount > 0 ? (
+              <Button title="Mark all read" variant="link" size="small" onPress={markAllRead} />
+            ) : null
+          }
+        />
+      }
+    >
       <SegmentedControl segments={FILTERS} value={activeFilter} onChange={setActiveFilter} />
 
       {feed.isLoading && data.length === 0 ? (
@@ -73,14 +75,11 @@ export default function NotificationsScreen() {
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   empty: {
     flexGrow: 1,
     justifyContent: "center",
