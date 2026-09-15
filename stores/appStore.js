@@ -31,6 +31,12 @@ const initialState = {
 
   // Routing intents (e.g. deep links waiting for auth)
   pendingRoute: null,
+
+  // Onboarding funnel (transient, cleared once the account exists)
+  hasSeenOnboarding: false,
+  onboardingSlide: 0,
+  signupRole: null, // "creator" | "viewer" | null
+  interests: [], // selected interest ids
 };
 
 const useAppStore = create((set, get) => ({
@@ -79,6 +85,22 @@ const useAppStore = create((set, get) => ({
   setFeature: (key, value) =>
     set((state) => ({ features: { ...state.features, [key]: value } })),
   isFeatureEnabled: (key) => Boolean(get().features[key]),
+
+  // -------------------------------------------------------------------------
+  // Onboarding funnel
+  // -------------------------------------------------------------------------
+  completeOnboarding: () => set({ hasSeenOnboarding: true }),
+  setOnboardingSlide: (onboardingSlide) => set({ onboardingSlide }),
+  setSignupRole: (signupRole) => set({ signupRole }),
+
+  toggleInterest: (interestId) =>
+    set((state) => ({
+      interests: state.interests.includes(interestId)
+        ? state.interests.filter((id) => id !== interestId)
+        : [...state.interests, interestId],
+    })),
+
+  setInterests: (interests) => set({ interests }),
 
   // -------------------------------------------------------------------------
   // Routing intents
