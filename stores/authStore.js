@@ -21,6 +21,77 @@ export const AUTH_STATUS = {
   UNAUTHENTICATED: "unauthenticated",
 };
 
+// ---------------------------------------------------------------------------
+// Default providers
+//
+// The store is transport-agnostic: real sign-in/register/verify calls are
+// injected by the caller. Until an API client exists these local stubs keep the
+// auth funnel fully usable, and every action still accepts a real provider.
+// Replace by passing `signin` / `register` / `verify` (or set them globally via
+// `setAuthProviders`) once your client is ready.
+// ---------------------------------------------------------------------------
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function makeId(prefix = "user") {
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function makeTokens(identifier) {
+  return {
+    accessToken: `local.${identifier || "anon"}.${Date.now().toString(36)}`,
+    refreshToken: `refresh.${Date.now().toString(36)}`,
+    expiresAt: Date.now() + 1000 * 60 * 60 * 24 * 30,
+  };
+}
+
+// Derives a display name + username from whatever identifier was supplied.
+function identityFrom(identifier) {
+  if (!identifier) return { name: "Gists user", username: "gists.dev", email: "" };
+  if (identifier.includes("@")) {
+    const handle = identifier.split("@")[0];
+    return { name: handle, username: handle.toLowerCase(), email: identifier };
+  }
+  return { name: identifier, username: String(identifier).replace(/\D/g, "").slice(-6) || "gists.dev", email: "" };
+}
+
+const localSignin = async ({ identifier, password }) => {
+  await wait(600);
+  if (!identifier || !password) throw new Error("Enter your email and password");
+  const base = identityFrom(identifier);
+  return {
+    user: { id: makeId(), ...base, isNew: false, createdAt: new Date().toISOString() },
+    tokens: makeTokens(identifier),
+  };
+};
+
+const localRegister = async (payload = {}) => {
+  await wait(700);
+  if (!payload.email || !payload.password) throw new Error("Email and password are required");
+  return {
+    user: {
+      id: makeId(),
+      name: payload.name || identityFrom(payload.email).name,
+      username: payload.username || identityFrom(payload.email).username,
+      email: payload.email,
+      phone: payload.phone || "",
+      isNew: true,
+      createdAt: new Date().toISOString(),
+    },
+    tokens: makeTokens(payload.email),
+  };
+};
+
+const localVerify = async ({ code }) => {
+  await wait(500);
+  if (!code || String(code).length < 6) throw new Error("Invalid code");
+  return { verified: true, code: String(code) };
+};
+
+const localResend = async () => {
+  await wait(300);
+  return { sent: true };
+};
+
 const initialState = {
   status: AUTH_STATUS.UNKNOWN,
   isLoading: true, // true while restoring the session at boot
@@ -39,6 +110,11 @@ const initialState = {
   // Multiple accounts (config.features.multipleAccounts)
   accounts: [], // [{ id, user, tokens, active }]
   activeAccountId: null,
+
+  // Injectable API seam. Left empty so the local stubs above are used; call
+  // setAuthProviders({ signin, register, verify, resend }) to switch to a real
+  // client. Per-call providers always take precedence over these.
+  providers: {},
 };
 
 const useAuthStore = create((set, get) => ({
@@ -72,6 +148,13 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
+  // Register (or clear) the API providers used by every auth action.
+  setAuthProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
+
   setSession: async ({ user, tokens, isOnboarded = false }) => {
     await setSession({ user, tokens, isOnboarded });
     set({
@@ -84,14 +167,13 @@ const useAuthStore = create((set, get) => ({
     });
   },
 
-  // Hand off to the API layer; returns the user on success.
-  // `signin` is passed in by the caller (e.g. useAuth hook) to keep this store
-  // free of a hard API dependency.
+  // Hand off to the API layer; returns the user on success. Pass `signin` to
+  // use your real client — otherwise the local stub keeps the funnel working.
   login: async ({ identifier, password, signin }) => {
     set({ isLoading: true, error: null });
     try {
-      if (typeof signin !== "function") throw new Error("signin provider is required");
-      const { user, tokens } = await signin({ identifier, password });
+      const provider = signin || get().providers.signin || localSignin;
+      const { user, tokens } = await provider({ identifier, password });
       await get().setSession({ user, tokens });
       await get().addAccount({ user, tokens });
       return user;
@@ -104,8 +186,8 @@ const useAuthStore = create((set, get) => ({
   register: async ({ payload, register }) => {
     set({ isLoading: true, error: null });
     try {
-      if (typeof register !== "function") throw new Error("register provider is required");
-      const { user, tokens } = await register(payload);
+      const provider = register || get().providers.register || localRegister;
+      const { user, tokens } = await provider(payload);
       await get().setSession({ user, tokens });
       await get().addAccount({ user, tokens });
       return user;
@@ -172,8 +254,8 @@ const useAuthStore = create((set, get) => ({
   verifyOtp: async ({ code, verify }) => {
     set({ isLoading: true, error: null });
     try {
-      if (typeof verify !== "function") throw new Error("verify provider is required");
-      const result = await verify({ ...get().pendingIdentity, code });
+      const provider = verify || get().providers.verify || localVerify;
+      const result = await provider({ ...get().pendingIdentity, code });
       set({
         isLoading: false,
         pendingOtp: null,

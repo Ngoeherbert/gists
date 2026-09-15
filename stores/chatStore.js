@@ -4,6 +4,10 @@
 
 import { create } from "zustand";
 import config from "../constants/config";
+import {
+  conversationsProvider,
+  messagesProvider,
+} from "../utils/mockApi";
 
 const MESSAGES_LIMIT = config.pagination.messagesLimit;
 
@@ -50,10 +54,20 @@ const initialState = {
   call: null, // { id, kind: "voice"|"video", peer, status, startedAt, isMuted, isCameraOn }
 
   error: null,
+
+  // Injectable API seam — see utils/mockApi.js for the local defaults.
+  providers: {},
 };
 
 const useChatStore = create((set, get) => ({
   ...initialState,
+
+  // Swap in a real API client (or clear it with `setProviders({})`).
+  setProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
 
   // -------------------------------------------------------------------------
   // Conversations
@@ -61,10 +75,8 @@ const useChatStore = create((set, get) => ({
   fetchConversations: async ({ refresh = false, fetchConversations } = {}) => {
     set({ isLoadingConversations: true, error: null });
     try {
-      if (typeof fetchConversations !== "function") {
-        throw new Error("fetchConversations provider is required");
-      }
-      const conversations = (await fetchConversations({ refresh })) || [];
+      const provider = fetchConversations || get().providers.conversations || conversationsProvider;
+      const conversations = (await provider({ refresh })) || [];
       const byId = {};
       conversations.forEach((c) => {
         byId[c.id] = c;
@@ -133,8 +145,8 @@ const useChatStore = create((set, get) => ({
     });
 
     try {
-      if (typeof fetchPage !== "function") throw new Error("fetchPage provider is required");
-      const { items = [], nextCursor = null } = await fetchPage({
+      const provider = fetchPage || get().providers.messages || messagesProvider;
+      const { items = [], nextCursor = null } = await provider({
         conversationId,
         cursor: refresh ? undefined : existing?.cursor ?? undefined,
         limit: MESSAGES_LIMIT,

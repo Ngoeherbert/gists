@@ -4,6 +4,11 @@
 
 import { create } from "zustand";
 import config from "../constants/config";
+import {
+  createPostProvider,
+  commentsProvider,
+  feedProvider,
+} from "../utils/mockApi";
 
 const PAGE_LIMIT = config.pagination.defaultLimit;
 const COMMENTS_LIMIT = config.pagination.commentsLimit;
@@ -32,6 +37,9 @@ const initialState = {
   drafts: [],
   bookmarks: [],
 
+  // Injectable API seam — see utils/mockApi.js for the local defaults.
+  providers: {},
+
   error: null,
 };
 
@@ -40,6 +48,13 @@ const toggleInArray = (arr, value) =>
 
 const useFeedStore = create((set, get) => ({
   ...initialState,
+
+  // Swap in a real API client (or clear it with `setProviders({})`).
+  setProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
 
   // -------------------------------------------------------------------------
   // Feed navigation + loading
@@ -71,10 +86,9 @@ const useFeedStore = create((set, get) => ({
     }));
 
     try {
-      if (typeof fetchPage !== "function")
-        throw new Error("fetchPage provider is required");
+      const provider = fetchPage || get().providers.feed || feedProvider;
       const pageCursor = refresh ? undefined : (cursor ?? current.cursor);
-      const { items = [], nextCursor = null } = await fetchPage({
+      const { items = [], nextCursor = null } = await provider({
         feed,
         cursor: pageCursor,
         limit: PAGE_LIMIT,
@@ -170,9 +184,8 @@ const useFeedStore = create((set, get) => ({
   createPost: async ({ payload, create: createPost }) => {
     set({ error: null });
     try {
-      if (typeof createPost !== "function")
-        throw new Error("create provider is required");
-      const post = await createPost(payload);
+      const provider = createPost || get().providers.createPost || createPostProvider;
+      const post = await provider(payload);
       get().upsertPost(post);
       set((state) => ({
         feeds: {
@@ -308,9 +321,8 @@ const useFeedStore = create((set, get) => ({
     }));
 
     try {
-      if (typeof fetchPage !== "function")
-        throw new Error("fetchPage provider is required");
-      const { items = [], nextCursor = null } = await fetchPage({
+      const provider = fetchPage || get().providers.comments || commentsProvider;
+      const { items = [], nextCursor = null } = await provider({
         postId,
         cursor: refresh ? undefined : (existing?.cursor ?? undefined),
         limit: COMMENTS_LIMIT,

@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import config from "../constants/config";
+import { notificationsProvider } from "../utils/mockApi";
 
 const PAGE_LIMIT = config.pagination.defaultLimit;
 
@@ -50,10 +51,20 @@ const initialState = {
   },
 
   error: null,
+
+  // Injectable API seam — see utils/mockApi.js for the local defaults.
+  providers: {},
 };
 
 const useNotificationStore = create((set, get) => ({
   ...initialState,
+
+  // Swap in a real API client (or clear it with `setProviders({})`).
+  setProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
 
   // -------------------------------------------------------------------------
   // Feed loading
@@ -69,8 +80,8 @@ const useNotificationStore = create((set, get) => ({
     });
 
     try {
-      if (typeof fetchPage !== "function") throw new Error("fetchPage provider is required");
-      const { items = [], nextCursor = null, unreadCount } = await fetchPage({
+      const provider = fetchPage || get().providers.feed || notificationsProvider;
+      const { items = [], nextCursor = null, unreadCount } = await provider({
         cursor: refresh ? undefined : current.cursor,
         limit: PAGE_LIMIT,
         filter: filter ?? get().activeFilter,

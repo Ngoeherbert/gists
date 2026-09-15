@@ -4,6 +4,11 @@
 
 import { create } from "zustand";
 import config from "../constants/config";
+import {
+  commentsProvider,
+  createReelProvider,
+  reelProvider,
+} from "../utils/mockApi";
 
 const PAGE_LIMIT = config.pagination.defaultLimit;
 const COMMENTS_LIMIT = config.pagination.commentsLimit;
@@ -35,11 +40,21 @@ const initialState = {
   isUploading: false,
   uploadProgress: 0,
 
+  // Injectable API seam — see utils/mockApi.js for the local defaults.
+  providers: {},
+
   error: null,
 };
 
 const useReelStore = create((set, get) => ({
   ...initialState,
+
+  // Swap in a real API client (or clear it with `setProviders({})`).
+  setProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
 
   // -------------------------------------------------------------------------
   // Feed
@@ -59,9 +74,8 @@ const useReelStore = create((set, get) => ({
     }));
 
     try {
-      if (typeof fetchPage !== "function")
-        throw new Error("fetchPage provider is required");
-      const { items = [], nextCursor = null } = await fetchPage({
+      const provider = fetchPage || get().providers.feed || reelProvider;
+      const { items = [], nextCursor = null } = await provider({
         cursor: refresh ? undefined : current.cursor,
         limit: PAGE_LIMIT,
       });
@@ -216,9 +230,8 @@ const useReelStore = create((set, get) => ({
     });
 
     try {
-      if (typeof fetchPage !== "function")
-        throw new Error("fetchPage provider is required");
-      const { items = [], nextCursor = null } = await fetchPage({
+      const provider = fetchPage || get().providers.comments || commentsProvider;
+      const { items = [], nextCursor = null } = await provider({
         reelId,
         cursor: refresh ? undefined : (existing?.cursor ?? undefined),
         limit: COMMENTS_LIMIT,
@@ -351,9 +364,8 @@ const useReelStore = create((set, get) => ({
   publishReel: async ({ create, payload }) => {
     set({ isUploading: true, uploadProgress: 0, error: null });
     try {
-      if (typeof create !== "function")
-        throw new Error("create provider is required");
-      const reel = await create(payload ?? get().draft);
+      const provider = create || get().providers.create || createReelProvider;
+      const reel = await provider(payload ?? get().draft);
       set((state) => {
         const reels = { ...state.reels, [reel.id]: reel };
         const feed = { ...state.feed, ids: [reel.id, ...state.feed.ids] };

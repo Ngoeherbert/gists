@@ -12,5 +12,6 @@ export { default as Avatar } from "./Avatar";
 export { default as Badge } from "./Badge";
 export { default as Chip } from "./Chip";
 export { default as EmptyState } from "./EmptyState";
+export { default as SegmentedControl } from "./SegmentedControl";
 export { default as Loading, Spinner } from "./Loading";
 export { default as Toast } from "./Toast";

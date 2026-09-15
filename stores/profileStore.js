@@ -4,6 +4,11 @@
 
 import { create } from "zustand";
 import config from "../constants/config";
+import {
+  meProvider,
+  profileListProvider,
+  profileProvider,
+} from "../utils/mockApi";
 
 const PAGE_LIMIT = config.pagination.defaultLimit;
 
@@ -46,6 +51,9 @@ const initialState = {
   // Edit profile
   isSaving: false,
   error: null,
+
+  // Injectable API seam — see utils/mockApi.js for the local defaults.
+  providers: {},
 };
 
 const listKey = (type, userId) => `${type}:${userId || "me"}`;
@@ -53,14 +61,21 @@ const listKey = (type, userId) => `${type}:${userId || "me"}`;
 const useProfileStore = create((set, get) => ({
   ...initialState,
 
+  // Swap in a real API client (or clear it with `setProviders({})`).
+  setProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
+
   // -------------------------------------------------------------------------
   // Own profile
   // -------------------------------------------------------------------------
   fetchMe: async ({ fetchMe } = {}) => {
     set({ isLoadingMe: true, error: null });
     try {
-      if (typeof fetchMe !== "function") throw new Error("fetchMe provider is required");
-      const me = await fetchMe();
+      const provider = fetchMe || get().providers.me || meProvider;
+      const me = await provider();
       set({ me, isLoadingMe: false });
       return me;
     } catch (error) {
@@ -112,8 +127,8 @@ const useProfileStore = create((set, get) => ({
   fetchProfile: async ({ userId, fetchProfile } = {}) => {
     set({ isLoadingProfile: true, error: null });
     try {
-      if (typeof fetchProfile !== "function") throw new Error("fetchProfile provider is required");
-      const profile = await fetchProfile(userId);
+      const provider = fetchProfile || get().providers.profile || profileProvider;
+      const profile = await provider(userId);
       set((state) => ({
         profiles: { ...state.profiles, [userId]: profile },
         isLoadingProfile: false,
@@ -143,8 +158,8 @@ const useProfileStore = create((set, get) => ({
     });
 
     try {
-      if (typeof fetchPage !== "function") throw new Error("fetchPage provider is required");
-      const { items = [], nextCursor = null } = await fetchPage({
+      const provider = fetchPage || get().providers.list || profileListProvider;
+      const { items = [], nextCursor = null } = await provider({
         type,
         userId,
         cursor: refresh ? undefined : current?.cursor ?? undefined,

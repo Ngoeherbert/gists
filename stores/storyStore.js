@@ -3,6 +3,10 @@
 // and composer drafts.
 
 import { create } from "zustand";
+import {
+  createStoryProvider,
+  storiesProvider,
+} from "../utils/mockApi";
 
 const initialState = {
   // Tray
@@ -26,10 +30,20 @@ const initialState = {
   draft: null, // { media, mediaType, caption, duration, stickers, ... }
   isUploading: false,
   uploadProgress: 0,
+
+  // Injectable API seam — see utils/mockApi.js for the local defaults.
+  providers: {},
 };
 
 const useStoryStore = create((set, get) => ({
   ...initialState,
+
+  // Swap in a real API client (or clear it with `setProviders({})`).
+  setProviders: (providers = {}) =>
+    set((state) => {
+      const merged = { ...state.providers, ...providers };
+      return { providers: merged };
+    }),
 
   // -------------------------------------------------------------------------
   // Tray
@@ -37,8 +51,8 @@ const useStoryStore = create((set, get) => ({
   fetchStories: async ({ refresh = false, fetchStories } = {}) => {
     set({ isLoading: !refresh, isRefreshing: refresh, error: null });
     try {
-      if (typeof fetchStories !== "function") throw new Error("fetchStories provider is required");
-      const groups = (await fetchStories()) || [];
+      const provider = fetchStories || get().providers.feed || storiesProvider;
+      const groups = (await provider()) || [];
       set({ groups, isLoading: false, isRefreshing: false });
       return groups;
     } catch (error) {
@@ -209,8 +223,8 @@ const useStoryStore = create((set, get) => ({
   publishStory: async ({ create, payload }) => {
     set({ isUploading: true, uploadProgress: 0, error: null });
     try {
-      if (typeof create !== "function") throw new Error("create provider is required");
-      const story = await create(payload ?? get().draft);
+      const provider = create || get().providers.create || createStoryProvider;
+      const story = await provider(payload ?? get().draft);
       set({ isUploading: false, uploadProgress: 1, draft: null });
       return story;
     } catch (error) {
