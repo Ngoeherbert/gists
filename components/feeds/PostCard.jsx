@@ -292,7 +292,9 @@ const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: layout.borderWidth.thin,
+    marginTop: spacing.xxl,
+    marginBottom: spacing.xm,
+
   },
   card: {
     borderBottomWidth: 0,

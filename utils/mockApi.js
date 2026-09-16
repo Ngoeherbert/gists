@@ -126,7 +126,7 @@ export function makeStories() {
     lastUpdatedAt: hoursAgo(i + 1),
     stories: Array.from({ length: 3 }, (_, j) => ({
       id: `s_${author.id}_${j}`,
-      mediaUri: null,
+      mediaUri: `https://picsum.photos/seed/story${i}${j}/600/800`,
       caption: j === 0 ? `${author.name} shared a story` : "",
       isLiked: false,
       likesCount: (i + j) * 3,
@@ -138,13 +138,16 @@ export function makeStories() {
 
 export function makeConversations() {
   const authors = Object.values(PEOPLE);
-  return authors.map((person, i) => ({
+  const now = Date.now();
+
+  const conversations = authors.map((person, i) => ({
     id: `c_${person.id}`,
     type: "direct",
     participants: [person],
     unreadCount: i === 0 ? 2 : i === 2 ? 1 : 0,
     isMuted: i === 4,
-    updatedAt: Date.now() - (i + 1) * 900 * 1000,
+    isPinned: i === 0,
+    updatedAt: now - (i + 1) * 900 * 1000,
     lastMessage: {
       id: `cm_${i}`,
       text:
@@ -152,22 +155,135 @@ export function makeConversations() {
           ? "Are we still on for tomorrow?"
           : LOREM[(i + 5) % LOREM.length],
       isMine: i % 3 === 0,
-      createdAt: new Date(Date.now() - (i + 1) * 900 * 1000).toISOString(),
+      createdAt: new Date(now - (i + 1) * 900 * 1000).toISOString(),
     },
   }));
+
+  // Add a group conversation
+  conversations.unshift({
+    id: "c_gist_dev",
+    type: "group",
+    name: "Gist Dev Team",
+    avatarUrl: "https://picsum.photos/seed/gistdev/200/200",
+    participants: [
+      authors[0],
+      authors[1],
+      authors[2],
+      { id: "u_you", name: "You", username: "you", avatarUrl: null, isOnline: true },
+    ],
+    unreadCount: 3,
+    isMuted: false,
+    isPinned: false,
+    updatedAt: now - 5 * 60 * 1000,
+    lastMessage: {
+      id: "cm_group_1",
+      text: "Ready to ship the new chat feature 🚀",
+      isMine: false,
+      senderId: authors[0].id,
+      createdAt: new Date(now - 5 * 60 * 1000).toISOString(),
+    },
+  });
+
+  // Add another group
+  conversations.splice(2, 0, {
+    id: "c_design_review",
+    type: "group",
+    name: "Design Review",
+    avatarUrl: "https://picsum.photos/seed/designreview/200/200",
+    participants: [
+      authors[3],
+      authors[4],
+      { id: "u_you", name: "You", username: "you", avatarUrl: null, isOnline: true },
+    ],
+    unreadCount: 1,
+    isMuted: false,
+    isPinned: true,
+    updatedAt: now - 2 * 3600 * 1000,
+    lastMessage: {
+      id: "cm_group_2",
+      text: "Loving the new color scheme for dark mode",
+      isMine: true,
+      senderId: "u_you",
+      createdAt: new Date(now - 2 * 3600 * 1000).toISOString(),
+    },
+  });
+
+  return conversations;
 }
 
 export function makeMessages(conversationId, count = 15, offset = 0) {
+  const authors = Object.values(PEOPLE);
+  const isGroup = conversationId.startsWith("c_gist") || conversationId.startsWith("c_design");
+  const groupParticipants = isGroup ? authors.slice(0, 3) : [];
+
   return Array.from({ length: count }, (_, i) => {
     const n = offset + i;
     const mine = n % 3 === 0;
-    return {
+
+    // For group chats, alternate between participants
+    let senderId = mine ? "u_me" : conversationId;
+    let senderName = mine ? "You" : "Unknown";
+    let senderAvatar = null;
+
+    if (isGroup && !mine) {
+      const participant = groupParticipants[n % groupParticipants.length];
+      senderId = participant.id;
+      senderName = participant.name;
+      senderAvatar = participant.avatarUrl;
+    } else if (!mine && !isGroup) {
+      const participant = authors.find((p) => `c_${p.id}` === conversationId);
+      if (participant) {
+        senderId = participant.id;
+        senderName = participant.name;
+        senderAvatar = participant.avatarUrl;
+      }
+    }
+
+    const messageTypes = ["text", "image", "video", "voice"];
+    const type = messageTypes[n % messageTypes.length];
+
+    const base = {
       id: `m_${conversationId}_${n}`,
-      text: LOREM[n % LOREM.length],
-      senderId: mine ? "me" : conversationId,
+      senderId,
+      senderName,
+      senderAvatar,
       isMine: mine,
       status: mine ? (n % 2 === 0 ? "read" : "sent") : undefined,
       createdAt: hoursAgo(24 - n),
+    };
+
+    if (type === "text") {
+      return {
+        ...base,
+        text: LOREM[n % LOREM.length],
+      };
+    }
+
+    if (type === "image") {
+      return {
+        ...base,
+        mediaType: "image",
+        mediaUrl: `https://picsum.photos/seed/chat${conversationId}${n}/800/600`,
+        text: n % 5 === 0 ? "Check this out!" : "",
+      };
+    }
+
+    if (type === "video") {
+      return {
+        ...base,
+        mediaType: "video",
+        mediaUrl: null,
+        text: "📹 Video",
+        duration: 15 + (n % 45),
+      };
+    }
+
+    // voice
+    return {
+      ...base,
+      mediaType: "voice",
+      duration: 10 + (n % 60),
+      waveform: Array.from({ length: 20 }, () => Math.random()),
     };
   });
 }

@@ -50,6 +50,9 @@ export default function FeedsScreen() {
         <Header
           title="Gist Socials"
           compactTitle
+          titleVariant="heading"
+          titleStyle={{ fontWeight: "800" }}
+          border={false}
           right={
             <View style={styles.headerRight}>
               <IconButton
@@ -99,11 +102,16 @@ function StoryTray({ groups, seen, user, onOpenStory, onAddStory }) {
     (group) => group.id !== myGroup?.id && group.stories?.length,
   );
   const hasMyStory = Boolean(myGroup?.stories?.length);
+  const myCover = myGroup?.stories?.[0]?.mediaUri ?? null;
+  // The "My story" card needs a cover + avatar even when the user has no
+  // uploaded avatar and no matching story group — fall back to a placeholder.
+  const myAvatar = user?.avatarUrl || "https://i.pravatar.cc/200?img=12";
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storyTrayContent} style={styles.storyTray}>
       <StoryCard
-        uri={user?.avatarUrl}
+        uri={myAvatar}
+        coverUri={myCover}
         name={user?.name || user?.username || "You"}
         hasStory={hasMyStory}
         hasUnseen={hasMyStory && hasUnseenStory(myGroup, seen)}
@@ -120,10 +128,13 @@ function StoryTray({ groups, seen, user, onOpenStory, onAddStory }) {
       {visibleGroups.map((group) => {
         const author = group.author || {};
         const hasStory = Boolean(group.stories?.length);
+        const cover = group.stories?.[0]?.mediaUri ?? null;
+        const authorAvatar = author.avatarUrl || "https://i.pravatar.cc/200?img=8";
         return (
           <StoryCard
             key={group.id}
-            uri={author.avatarUrl}
+            uri={authorAvatar}
+            coverUri={cover}
             name={author.name || author.username}
             hasStory={hasStory}
             hasUnseen={hasUnseenStory(group, seen)}
@@ -156,7 +167,7 @@ const styles = StyleSheet.create({
   },
   storyTray: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.xl,
     paddingBottom: spacing.sm,
   },
   storyTrayContent: {
@@ -164,7 +175,7 @@ const styles = StyleSheet.create({
   },
   feedContent: {
     paddingHorizontal: spacing.m,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xl,
   },
 });

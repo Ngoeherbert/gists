@@ -82,7 +82,7 @@ const typography = {
     },
 
     heading: {
-      fontSize: 24,
+      fontSize: 25,
       lineHeight: 32,
       fontWeight: "700",
     },

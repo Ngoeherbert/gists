@@ -92,6 +92,8 @@ export default function TabBar({ state, descriptors, navigation }) {
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           if (route.name === "stories" || options.href === null) return null;
+          // Skip routes explicitly hidden from the tab bar (e.g. the create hub).
+          if (options.tabBarStyle?.display === "none") return null;
 
           const isFocused = state.index === index;
           const isCreate = route.name === "create";
@@ -170,7 +172,7 @@ export default function TabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({
   outer: {
     position: "absolute",
-    bottom: 10,
+    bottom: 15,
     left: 0,
     right: 0,
     alignItems: "center",
@@ -182,12 +184,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    width: "88%",
+    width: "94%",
     maxWidth: 420,
     borderRadius: 50,
     borderWidth: 1,
-    paddingVertical: spacing.m,
-    paddingHorizontal: spacing.m,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     // Shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },

@@ -1,5 +1,9 @@
 // app/(main)/feeds/_layout.jsx
 // Feeds section: the index feed plus the nested post / edit / comments / discover routes.
+//
+// Only the root `index` route is a tab screen — every nested screen (post detail,
+// comments, editor, discover) hides the bottom tab bar so the tab stays visible
+// only on the main tab screens.
 
 import React from "react";
 import { Stack } from "expo-router";

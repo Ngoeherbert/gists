@@ -44,14 +44,14 @@ function makeTokens(identifier) {
   };
 }
 
-// Derives a display name + username from whatever identifier was supplied.
+// Derives a display name + username + avatar from whatever identifier was supplied.
 function identityFrom(identifier) {
-  if (!identifier) return { name: "Gists user", username: "gists.dev", email: "" };
+  if (!identifier) return { name: "Gists user", username: "gists.dev", email: "", avatarUrl: "https://i.pravatar.cc/200?img=12" };
   if (identifier.includes("@")) {
     const handle = identifier.split("@")[0];
-    return { name: handle, username: handle.toLowerCase(), email: identifier };
+    return { name: handle, username: handle.toLowerCase(), email: identifier, avatarUrl: `https://i.pravatar.cc/200?img=${(handle.charCodeAt(0) % 50) + 1}` };
   }
-  return { name: identifier, username: String(identifier).replace(/\D/g, "").slice(-6) || "gists.dev", email: "" };
+  return { name: identifier, username: String(identifier).replace(/\D/g, "").slice(-6) || "gists.dev", email: "", avatarUrl: "https://i.pravatar.cc/200?img=8" };
 }
 
 const localSignin = async ({ identifier, password }) => {
@@ -201,7 +201,7 @@ const useAuthStore = create((set, get) => ({
     set({
       status: AUTH_STATUS.AUTHENTICATED,
       isGuest: true,
-      user: { id: "guest", name: "Guest", username: "guest" },
+      user: { id: "guest", name: "Guest", username: "guest", avatarUrl: "https://i.pravatar.cc/200?img=12" },
       tokens: initialState.tokens,
       isLoading: false,
     }),

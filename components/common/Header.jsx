@@ -2,10 +2,9 @@
 // Top app bar: optional back button, centered or left-aligned title, and a
 // right-hand actions slot. Used by every (main) section screen.
 
-import React from "react";
+import React, { isValidElement } from "react";
 import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
@@ -23,6 +22,8 @@ export default function Header({
   centerTitle = false,
   compactTitle = false,
   border = true,
+  titleVariant = "subtitle",
+  titleStyle,
   style,
 }) {
   const router = useRouter();
@@ -55,13 +56,18 @@ export default function Header({
 
       <View style={[styles.center, centerTitle && styles.centerAlign]}>
         {title ? (
-          <Text
-            variant="subtitle"
-            numberOfLines={1}
-            align={centerTitle ? "center" : "left"}
-          >
-            {title}
-          </Text>
+          isValidElement(title) ? (
+            title
+          ) : (
+            <Text
+              variant={titleVariant}
+              numberOfLines={1}
+              align={centerTitle ? "center" : "left"}
+              style={[compactTitle && styles.compactTitleText, titleStyle]}
+            >
+              {title}
+            </Text>
+          )
         ) : null}
         {subtitle ? (
           <Text variant="caption" color="tertiary" numberOfLines={1}>
@@ -99,15 +105,19 @@ const styles = StyleSheet.create({
   center: {
     flex: 1,
     justifyContent: "center",
+    paddingHorizontal: spacing.sm,
   },
   centerAlign: {
     alignItems: "center",
   },
   compactSide: {
-    minWidth: spacing.xl,
+    minWidth: spacing.xs,
   },
   compactWrap: {
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs,
+  },
+  compactTitleText: {
+    marginLeft: -spacing.s,
   },
 });

@@ -34,8 +34,8 @@ const initialState = {
 
   // Pinned / muted / archived bookkeeping
   pinned: [],
-  muted: [],
-  archived: [],
+  muted: ["c_u_linus"],
+  archived: ["c_u_grace"],
 
   // Own state
   isTyping: false,

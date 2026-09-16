@@ -33,12 +33,13 @@ export default function SettingsScreen({
                 const RowComponent = row.switch
                   ? SettingSwitchRow
                   : SettingsRow;
+                const { key, ...rest } = row;
                 return (
                   <React.Fragment key={row.key ?? row.label}>
                     {rowIndex > 0 ? (
                       <Divider inset={spacing.cardPadding} />
                     ) : null}
-                    <RowComponent {...row} />
+                    <RowComponent key={key} {...rest} />
                   </React.Fragment>
                 );
               })}

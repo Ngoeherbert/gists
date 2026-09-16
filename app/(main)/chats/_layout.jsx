@@ -11,18 +11,19 @@ export default function ChatsLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-        tabBarStyle: { display: "none" },
+        tabBarVisible: false,
       }}
     >
       <Stack.Screen
         name="index"
-        options={{ tabBarStyle: { display: "flex" } }}
+        options={{ tabBarVisible: true }}
       />
-      <Stack.Screen name="search" />
-      <Stack.Screen name="new-gist" />
-      <Stack.Screen name="ai" />
-      <Stack.Screen name="info" />
-      <Stack.Screen name="[id]" />
+      <Stack.Screen name="search" options={{ tabBarVisible: false }} />
+      <Stack.Screen name="new-gist" options={{ tabBarVisible: false }} />
+      <Stack.Screen name="ai" options={{ tabBarVisible: false }} />
+      <Stack.Screen name="info" options={{ tabBarVisible: false }} />
+      <Stack.Screen name="[id]" options={{ presentation: "fullScreenModal" }} />
+      <Stack.Screen name="archived" options={{ tabBarVisible: false }} />
       <Stack.Screen name="call/voice" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="call/video" options={{ presentation: "fullScreenModal" }} />
       <Stack.Screen name="room/[id]" />
