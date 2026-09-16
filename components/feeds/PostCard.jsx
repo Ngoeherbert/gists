@@ -6,7 +6,7 @@
 import React, { memo, useCallback } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
@@ -39,6 +39,38 @@ function timeAgo(ts) {
   return out;
 }
 
+// Pull hashtags (#word) and mentions (@user) out of a caption so they can be
+// rendered as tappable chips below the body text.
+function extractTags(text = "") {
+  const tags = [];
+  const seen = new Set();
+  const re = /[#@][\w]+/g;
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    const tag = match[0];
+    if (seen.has(tag)) continue;
+    seen.add(tag);
+    tags.push(tag);
+  }
+  return tags;
+}
+
+const TEXT_POST_COLORS = [
+  colors.accent,
+  colors.secondary,
+  colors.primary,
+  colors.primaryDark,
+  colors.like,
+];
+
+function textPostColor(postId) {
+  const hash = Array.from(postId ?? "").reduce(
+    (n, c) => n + c.charCodeAt(0),
+    0,
+  );
+  return TEXT_POST_COLORS[Math.abs(hash) % TEXT_POST_COLORS.length];
+}
+
 function PostCard({ post }) {
   const router = useRouter();
   const { theme, isDark } = useAppTheme();
@@ -57,14 +89,18 @@ function PostCard({ post }) {
 
   const author = post.author || {};
   const likeCount = post.likesCount ?? post.likeCount ?? 0;
+  const isTextOnly = !post.mediaUrl;
+  const tags = extractTags(post.text);
 
   return (
     <View
       style={[
         styles.wrap,
-        {
-          borderBottomColor: isDark ? colors.border : theme.colors.border,
-        },
+        isTextOnly
+          ? styles.card
+          : {
+              borderBottomColor: isDark ? colors.border : theme.colors.border,
+            },
       ]}
     >
       {/* Author row */}
@@ -102,11 +138,46 @@ function PostCard({ post }) {
 
       {/* Body */}
       {post.text ? (
-        <Pressable onPress={openPost}>
-          <Text variant="body" style={styles.text} numberOfLines={8}>
+        <Pressable
+          onPress={openPost}
+          style={[
+            styles.text,
+            isTextOnly && [
+              styles.textCard,
+              {
+                backgroundColor: textPostColor(post.id),
+              },
+            ],
+          ]}
+        >
+          <Text
+            variant="body"
+            style={[
+              styles.textInner,
+              isTextOnly && [styles.textInnerCard, { color: colors.white }],
+            ]}
+            numberOfLines={8}
+          >
             {post.text}
           </Text>
         </Pressable>
+      ) : null}
+
+      {/* Hashtags & mentions */}
+      {tags.length > 0 ? (
+        <View style={styles.tagsRow}>
+          {tags.map((tag) => (
+            <Pressable
+              key={tag}
+              style={styles.tagChip}
+              onPress={() => showToast(`Open ${tag}`, "info")}
+            >
+              <Text variant="caption" color="primary" style={styles.tagText}>
+                {tag}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       ) : null}
 
       {/* Media placeholder — real media rendering lands with the post detail work. */}
@@ -172,8 +243,8 @@ function PostCard({ post }) {
           onPress={() => toggleRepost({ postId: post.id })}
           hitSlop={spacing.sm}
         >
-          <Ionicons
-            name="repeat-outline"
+          <Feather
+            name="repeat"
             size={layout.iconSize.md}
             color={post.isReposted ? colors.repost : theme.text.tertiary}
           />
@@ -190,9 +261,9 @@ function PostCard({ post }) {
           }}
           hitSlop={spacing.sm}
         >
-          <Ionicons
-            name="paper-plane-outline"
-            size={layout.iconSize.md}
+          <MaterialCommunityIcons
+            name="share-outline"
+            size={layout.iconSize.lg}
             color={theme.text.tertiary}
           />
         </Pressable>
@@ -219,9 +290,19 @@ export default memo(PostCard);
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderBottomWidth: layout.borderWidth.thin,
+  },
+  card: {
+    borderBottomWidth: 0,
+    borderRadius: layout.borderRadius.lg,
+    marginBottom: spacing.sm,
+    elevation: 1,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
   },
   authorRow: {
     flexDirection: "row",
@@ -241,6 +322,24 @@ const styles = StyleSheet.create({
   text: {
     marginBottom: spacing.md,
   },
+  textCard: {
+    width: "100%",
+    aspectRatio: layout.post.imageAspectRatio,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: layout.borderRadius.lg,
+  },
+  textInner: {
+    textAlign: "left",
+    paddingHorizontal: spacing.md,
+  },
+  textInnerCard: {
+    textAlign: "center",
+    fontSize: 22,
+    fontWeight: "600",
+    lineHeight: 30,
+    paddingHorizontal: spacing.xl,
+  },
   media: {
     marginBottom: spacing.md,
   },
@@ -250,6 +349,22 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius.lg,
     alignItems: "center",
     justifyContent: "center",
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
+  tagChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: layout.borderRadius.round,
+    backgroundColor: "rgba(108, 92, 231, 0.12)",
+  },
+  tagText: {
+    fontWeight: "600",
   },
   actions: {
     flexDirection: "row",

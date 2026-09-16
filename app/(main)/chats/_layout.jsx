@@ -11,9 +11,13 @@ export default function ChatsLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        tabBarStyle: { display: "none" },
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="index"
+        options={{ tabBarStyle: { display: "flex" } }}
+      />
       <Stack.Screen name="search" />
       <Stack.Screen name="new-gist" />
       <Stack.Screen name="ai" />

@@ -1,21 +1,76 @@
 // components/navigation/TabBar.jsx
-// Modern bottom tab bar: floating pill with backdrop blur, active-tab highlight
+// Modern bottom tab bar: a floating pill with backdrop blur, active-tab highlight
 // and subtle scale animation. Receives the tab descriptors expo-router passes to
 // a custom tabBar renderer, so it stays in sync with Tabs.Screen definitions.
+//
+// The pill is absolutely positioned so scrollable content renders *underneath*
+// it (no bottom safe-area padding, no reserved flex space). Icon provider is
+// configurable per tab (or globally via config.navigation.tabs.iconProvider),
+// so the same icon name can render through Ionicons, Feather,
+// MaterialCommunityIcons, etc.
 
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  AntDesign,
+  Entypo,
+  Feather,
+  FontAwesome,
+  FontAwesome5,
+  Foundation,
+  Ionicons,
+  MaterialCommunityIcons,
+  MaterialIcons,
+  Octicons,
+  SimpleLineIcons,
+  Zocial,
+} from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
-import Text from "../ui/Text";
+
+// Map a provider key to the vector-icon component from @expo/vector-icons.
+const ICON_PROVIDERS = {
+  antdesign: AntDesign,
+  entypo: Entypo,
+  feather: Feather,
+  fontawesome: FontAwesome,
+  fontawesome5: FontAwesome5,
+  foundation: Foundation,
+  ionicons: Ionicons,
+  material: MaterialIcons,
+  materialcommunity: MaterialCommunityIcons,
+  octicons: Octicons,
+  simpleline: SimpleLineIcons,
+  zocial: Zocial,
+};
+
+// Resolve the icon element for a tab. `icon` may be:
+//  - a string            → rendered via the tab's (or global) provider
+//  - { provider, name }  → rendered via the named provider
+//  - a React element     → rendered as-is
+function resolveIcon(icon, provider, { color, size }) {
+  if (icon == null) return null;
+  if (React.isValidElement(icon)) return icon;
+
+  let name;
+  let providerKey = provider;
+  if (typeof icon === "string") {
+    name = icon;
+  } else if (typeof icon === "object" && icon !== null) {
+    name = icon.name;
+    providerKey = icon.provider ?? providerKey;
+  } else {
+    return null;
+  }
+
+  const IconComponent = ICON_PROVIDERS[providerKey] || Ionicons;
+  return <IconComponent name={name} size={size} color={color} />;
+}
 
 export default function TabBar({ state, descriptors, navigation }) {
-  const insets = useSafeAreaInsets();
   const { theme, isDark } = useAppTheme();
 
   const backgroundColor = isDark
@@ -24,14 +79,7 @@ export default function TabBar({ state, descriptors, navigation }) {
   const borderColor = isDark ? colors.borderLight : "rgba(0,0,0,0.08)";
 
   return (
-    <View
-      style={[
-        styles.outer,
-        {
-          paddingBottom: Math.max(insets.bottom, spacing.sm),
-        },
-      ]}
-    >
+    <View style={styles.outer}>
       <View
         style={[
           styles.wrap,
@@ -53,18 +101,22 @@ export default function TabBar({ state, descriptors, navigation }) {
             : isFocused
               ? colors.white
               : theme.text.tertiary;
-          const labelColor = isFocused ? colors.white : theme.text.tertiary;
           const activeBg = isFocused ? theme.colors.primary : "transparent";
           const iconBackground = isCreate ? colors.primary : activeBg;
 
-          const iconName = options.tabBarIcon
+          // Per-tab icon provider override, falling back to the global default.
+          const provider =
+            options.tabBarIconProvider ??
+            options.iconProvider ??
+            "ionicons";
+
+          const icon = options.tabBarIcon
             ? options.tabBarIcon({
                 focused: isFocused,
                 color: iconColor,
                 size: layout.iconSize.lg,
               })
             : null;
-          const label = options.title ?? route.name;
 
           const onPress = () => {
             const event = navigation.emit({
@@ -99,28 +151,14 @@ export default function TabBar({ state, descriptors, navigation }) {
                   isCreate && { backgroundColor: iconBackground },
                 ]}
               >
-                {typeof iconName === "string" ? (
-                  <Ionicons
-                    name={iconName}
-                    size={isCreate || isFocused ? layout.iconSize.lg : layout.iconSize.md}
-                    color={iconColor}
-                  />
-                ) : (
-                  iconName
-                )}
+                {resolveIcon(icon, provider, {
+                  color: iconColor,
+                  size:
+                    isCreate || isFocused
+                      ? layout.iconSize.lg
+                      : layout.iconSize.md,
+                })}
               </View>
-
-              <Text
-                variant="caption"
-                numberOfLines={1}
-                style={[
-                  styles.label,
-                  { color: labelColor },
-                  isFocused && styles.activeLabel,
-                ]}
-              >
-                {label}
-              </Text>
             </Pressable>
           );
         })}
@@ -131,6 +169,10 @@ export default function TabBar({ state, descriptors, navigation }) {
 
 const styles = StyleSheet.create({
   outer: {
+    position: "absolute",
+    bottom: 10,
+    left: 0,
+    right: 0,
     alignItems: "center",
     justifyContent: "flex-end",
     backgroundColor: "transparent",
@@ -142,10 +184,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     width: "88%",
     maxWidth: 420,
-    borderRadius: 32,
+    borderRadius: 50,
     borderWidth: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.m,
+    paddingHorizontal: spacing.m,
     // Shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
@@ -184,12 +226,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 8,
-  },
-  label: {
-    marginTop: spacing.xxs,
-    fontWeight: "600",
-  },
-  activeLabel: {
-    fontWeight: "700",
   },
 });

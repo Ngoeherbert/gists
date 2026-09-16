@@ -19,8 +19,9 @@ export default function FeedList({
   emptyProps,
   contentContainerStyle,
   style,
+  listHeaderComponent,
 }) {
-  const { theme } = useAppTheme();
+  const { theme, isDark } = useAppTheme();
 
   const feedState = useFeedStore((s) => s.feeds[feed]);
   const posts = useFeedStore((s) => s.posts);
@@ -62,6 +63,7 @@ export default function FeedList({
     <FlatList
       data={data}
       keyExtractor={(item) => item.id}
+      ListHeaderComponent={listHeaderComponent}
       renderItem={renderItem}
       showsVerticalScrollIndicator={false}
       style={[styles.list, style]}

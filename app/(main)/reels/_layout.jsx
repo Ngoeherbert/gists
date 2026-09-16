@@ -11,9 +11,13 @@ export default function ReelsLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        tabBarStyle: { display: "none" },
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="index"
+        options={{ tabBarStyle: { display: "flex" } }}
+      />
       <Stack.Screen name="comments/[id]" />
       <Stack.Screen name="editor" />
       <Stack.Screen name="preview" />

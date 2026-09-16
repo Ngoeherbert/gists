@@ -1,6 +1,11 @@
 // app/(main)/_layout.jsx
 // Authenticated app shell: a bottom tab bar over the five primary sections
 // declared in config.navigation.tabs (feeds, reels, create, chats, profile).
+//
+// The custom TabBar is absolutely positioned so scrollable content renders
+// *underneath* it (no reserved bottom space, no safe-area padding). Each tab
+// declares its own icon provider via `tabBarIconProvider`, so the same icon
+// name can render through Ionicons, Feather, MaterialCommunityIcons, etc.
 
 import React from "react";
 import { Tabs } from "expo-router";
@@ -21,23 +26,38 @@ export default function MainLayout() {
     >
       <Tabs.Screen
         name="feeds"
-        options={{ title: tabs.feeds, tabBarIcon: () => "home-outline" }}
+        options={{
+          tabBarIcon: () => "home",
+          tabBarIconProvider: "feather",
+        }}
       />
       <Tabs.Screen
         name="reels"
-        options={{ title: tabs.reels, tabBarIcon: () => "play-circle-outline" }}
+        options={{
+          tabBarIcon: () => "youtube",
+          tabBarIconProvider: "feather",
+        }}
       />
       <Tabs.Screen
         name="create"
-        options={{ title: tabs.create, tabBarIcon: () => "add" }}
+        options={{
+          tabBarIcon: () => "plus",
+          tabBarIconProvider: "feather",
+        }}
       />
       <Tabs.Screen
         name="chats"
-        options={{ title: tabs.chats, tabBarIcon: () => "chatbubbles-outline" }}
+        options={{
+          tabBarIcon: () => "chatbox-outline",
+          tabBarIconProvider: "Ionicons",
+        }}
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: tabs.profile, tabBarIcon: () => "person-circle-outline" }}
+        options={{
+          tabBarIcon: () => "person-outline",
+          tabBarIconProvider: "MaterialIcons",
+        }}
       />
       <Tabs.Screen name="stories" options={{ href: null }} />
     </Tabs>

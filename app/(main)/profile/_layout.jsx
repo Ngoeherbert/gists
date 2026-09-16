@@ -11,9 +11,13 @@ export default function ProfileLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        tabBarStyle: { display: "none" },
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="index"
+        options={{ tabBarStyle: { display: "flex" } }}
+      />
       <Stack.Screen name="edit" />
       <Stack.Screen name="feeds" />
       <Stack.Screen name="reels" />

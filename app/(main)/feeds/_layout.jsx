@@ -11,10 +11,14 @@ export default function FeedsLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        tabBarStyle: { display: "none" },
       }}
       initialRouteName="index"
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen
+        name="index"
+        options={{ tabBarStyle: { display: "flex" } }}
+      />
       <Stack.Screen name="discover" />
       <Stack.Screen name="post/[id]" />
       <Stack.Screen name="post/[id]/comments" />

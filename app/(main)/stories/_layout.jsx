@@ -11,6 +11,7 @@ export default function StoriesLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        tabBarStyle: { display: "none" },
       }}
     >
       <Stack.Screen
