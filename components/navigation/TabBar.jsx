@@ -70,8 +70,32 @@ function resolveIcon(icon, provider, { color, size }) {
   return <IconComponent name={name} size={size} color={color} />;
 }
 
+const ALLOWED_TAB_SCREENS = ["feeds", "reels", "chats", "profile"];
+
 export default function TabBar({ state, descriptors, navigation }) {
   const { theme, isDark } = useAppTheme();
+
+  const currentTabRoute = state.routes[state.index];
+  const currentTabName = currentTabRoute?.name;
+
+  // Only display TabBar on the allowed tab screens (feeds, reels, chats, profile)
+  if (!ALLOWED_TAB_SCREENS.includes(currentTabName)) {
+    return null;
+  }
+
+  // If a nested stack inside the active tab is showing a sub-screen, hide TabBar
+  if (currentTabRoute?.state) {
+    const activeSubRoute =
+      currentTabRoute.state.routes[currentTabRoute.state.index];
+    if (activeSubRoute && activeSubRoute.name !== "index") {
+      return null;
+    }
+  }
+
+  const currentTabOptions = descriptors[currentTabRoute?.key]?.options;
+  if (currentTabOptions?.tabBarStyle?.display === "none") {
+    return null;
+  }
 
   const backgroundColor = isDark
     ? "rgba(24, 24, 31, 0.85)"

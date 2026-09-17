@@ -1,13 +1,16 @@
 // components/ui/IconButton.jsx
 // Square/circular tappable icon affordance used in headers, toolbars and cards.
+// Provider-aware: `name` renders via `provider` (any @expo/vector-icons
+// family, defaults to Ionicons); `icon` accepts a full { name, provider }
+// descriptor or a React element for custom artwork.
 
 import React, { useCallback, useMemo, useRef } from "react";
 import { Animated, Pressable, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
 import useAppTheme from "../../hooks/useAppTheme";
+import AppIcon from "./AppIcon";
 
 const SIZES = {
   small: { box: 32, icon: layout.iconSize.sm },
@@ -17,6 +20,9 @@ const SIZES = {
 
 export default function IconButton({
   name,
+  icon,
+  provider = "ionicons",
+  iconProvider,
   size = "medium",
   color,
   background = "transparent",
@@ -78,7 +84,12 @@ export default function IconButton({
         ]}
         {...rest}
       >
-        <Ionicons name={name} size={conf.icon} color={iconColor} />
+        <AppIcon
+          icon={icon ?? name}
+          provider={iconProvider ?? provider}
+          size={conf.icon}
+          color={iconColor}
+        />
         {badge ? (
           <Animated.View
             style={[

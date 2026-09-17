@@ -15,7 +15,7 @@ import useReelStore from "../../../stores/reelStore";
 import useAppStore from "../../../stores/appStore";
 import useAuthStore from "../../../stores/authStore";
 import { Header, Screen } from "../../../components/common";
-import { Button, Input, Text } from "../../../components/ui";
+import { Button, IconButton, Input, Text } from "../../../components/ui";
 
 export default function CreateReelScreen() {
   const router = useRouter();
@@ -31,7 +31,8 @@ export default function CreateReelScreen() {
 
   const selectVideo = useCallback(async () => {
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         showToast("Allow video access to upload a reel", "warning");
         return;
@@ -78,8 +79,10 @@ export default function CreateReelScreen() {
   }, [video, caption, publishReel, user, showToast, router]);
 
   return (
-    <Screen padded={false} header={<Header title="New reel" showBack />}>
-
+    <Screen
+      padded={false}
+      header={<Header title="New reel" right={<IconButton name="add" />} />}
+    >
       <View style={styles.body}>
         <Pressable
           onPress={selectVideo}
@@ -100,7 +103,9 @@ export default function CreateReelScreen() {
             {video ? "Video selected" : "Select a video"}
           </Text>
           <Text variant="bodySmall" color="secondary_text" align="center">
-            {video ? (video.fileName ?? "Tap to choose a different clip") : "Up to 90 seconds, MP4 or MOV"}
+            {video
+              ? (video.fileName ?? "Tap to choose a different clip")
+              : "Up to 90 seconds, MP4 or MOV"}
           </Text>
         </Pressable>
 

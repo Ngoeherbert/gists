@@ -3,7 +3,7 @@
 // incoming messages align left. Includes a timestamp and read receipt.
 
 import React, { memo, useState } from "react";
-import { Pressable, StyleSheet, View, Animated, Image } from "react-native";
+import { Pressable, StyleSheet, View, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
@@ -93,23 +93,37 @@ function MessageBubble({ message, onLongPress, showAvatar = true, showName = fal
 
           {message.mediaType === "voice" ? (
             <View style={styles.voiceMessage}>
-              <Ionicons name="mic-outline" size={20} color={textColor} style={styles.voiceIcon} />
-              <Animated.View style={[styles.waveform, { width: message.waveform?.length * 4 || 80 }]}>
+              <Ionicons
+                name="mic-outline"
+                size={20}
+                color={textColor}
+                style={styles.voiceIcon}
+              />
+              <View
+                style={[
+                  styles.waveform,
+                  { width: message.waveform?.length * 4 || 80 },
+                ]}
+              >
                 {message.waveform?.map((val, i) => (
                   <View
                     key={i}
                     style={[
                       styles.waveBar,
-                      { height: Math.max(4, val * 30), backgroundColor: textColor },
+                      {
+                        height: Math.max(4, val * 30),
+                        backgroundColor: textColor,
+                      },
                     ]}
                   />
                 ))}
-              </Animated.View>
-              {message.duration && (
+              </View>
+              {message.duration ? (
                 <Text variant="caption" color={textColor} style={styles.duration}>
-                  {Math.floor(message.duration / 60)}:{String(message.duration % 60).padStart(2, "0")}
+                  {Math.floor(message.duration / 60)}:
+                  {String(message.duration % 60).padStart(2, "0")}
                 </Text>
-              )}
+              ) : null}
             </View>
           ) : null}
 

@@ -2,7 +2,13 @@
 // Conversations list with search, gist-room and AI entry points.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, ScrollView, StyleSheet, View, TouchableOpacity } from "react-native";
+import {
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import colors from "../../../constants/colors";
@@ -41,7 +47,9 @@ export default function ChatsScreen() {
   });
 
   const archived = useChatStore((s) => s.archived);
-  const archivedConversations = conversations.filter((c) => archived.includes(c.id));
+  const archivedConversations = conversations.filter((c) =>
+    archived.includes(c.id),
+  );
 
   // Filter out archived from main list
   const nonArchived = sorted.filter((c) => !archived.includes(c.id));
@@ -50,7 +58,8 @@ export default function ChatsScreen() {
     if (filter === "unread") return (c.unreadCount ?? 0) > 0;
     if (filter === "groups") return c.type === "group";
     if (filter === "fav") return pinned.includes(c.id);
-    if (filter === "updates") return c.type === "group" || c.name?.includes("Gist");
+    if (filter === "updates")
+      return c.type === "group" || c.name?.includes("Gist");
     return true;
   });
 
@@ -59,7 +68,7 @@ export default function ChatsScreen() {
       setActiveConversation(conversation.id);
       router.navigate(`/(main)/chats/${conversation.id}`);
     },
-    [setActiveConversation, router]
+    [setActiveConversation, router],
   );
 
   const openArchived = useCallback(() => {
@@ -67,12 +76,41 @@ export default function ChatsScreen() {
   }, [router]);
 
   const renderFilterPills = () => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContent}>
-      <Chip label="All" selected={filter === "all"} onPress={() => setFilter("all")} size="small" />
-      <Chip label="Unread" selected={filter === "unread"} onPress={() => setFilter("unread")} size="small" />
-      <Chip label="Groups" selected={filter === "groups"} onPress={() => setFilter("groups")} size="small" />
-      <Chip label="Fav" selected={filter === "fav"} onPress={() => setFilter("fav")} size="small" />
-      <Chip label="Updates" selected={filter === "updates"} onPress={() => setFilter("updates")} size="small" />
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterContent}
+    >
+      <Chip
+        label="All"
+        selected={filter === "all"}
+        onPress={() => setFilter("all")}
+        size="small"
+      />
+      <Chip
+        label="Unread"
+        selected={filter === "unread"}
+        onPress={() => setFilter("unread")}
+        size="small"
+      />
+      <Chip
+        label="Groups"
+        selected={filter === "groups"}
+        onPress={() => setFilter("groups")}
+        size="small"
+      />
+      <Chip
+        label="Fav"
+        selected={filter === "fav"}
+        onPress={() => setFilter("fav")}
+        size="small"
+      />
+      <Chip
+        label="Updates"
+        selected={filter === "updates"}
+        onPress={() => setFilter("updates")}
+        size="small"
+      />
     </ScrollView>
   );
 
@@ -82,17 +120,30 @@ export default function ChatsScreen() {
     return (
       <TouchableOpacity style={styles.archivedEntry} onPress={openArchived}>
         <View style={[styles.archivedEntryIcon, { backgroundColor: iconBg }]}>
-          <Ionicons name="archive-outline" size={20} color={isDark ? theme.text.tertiary : "#888"} />
+          <Ionicons
+            name="archive-outline"
+            size={20}
+            color={isDark ? theme.text.tertiary : "#888"}
+          />
         </View>
         <View style={styles.archivedEntryContent}>
-          <Text variant="bodyMedium" color="default" style={styles.archivedEntryLabel}>
+          <Text
+            variant="bodyMedium"
+            color="default"
+            style={styles.archivedEntryLabel}
+          >
             Archived
           </Text>
           <Text variant="caption" color="tertiary">
-            {archivedConversations.length} {archivedConversations.length === 1 ? "chat" : "chats"}
+            {archivedConversations.length}{" "}
+            {archivedConversations.length === 1 ? "chat" : "chats"}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={isDark ? theme.text.tertiary : "#888"} />
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={isDark ? theme.text.tertiary : "#888"}
+        />
       </TouchableOpacity>
     );
   };
@@ -104,7 +155,7 @@ export default function ChatsScreen() {
     </View>
   );
 
-return (
+  return (
     <Screen
       padded={false}
       edges={["top"]}
@@ -144,7 +195,9 @@ return (
             />
           )}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={filtered.length === 0 ? styles.empty : undefined}
+          contentContainerStyle={
+            filtered.length === 0 ? styles.empty : undefined
+          }
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={
             <EmptyState
@@ -212,7 +265,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    bottom: spacing.xxxl + layout.headerHeight,
+    bottom: layout.tabBarHeight + spacing.huge,
     right: spacing.md,
     width: 56,
     height: 56,
