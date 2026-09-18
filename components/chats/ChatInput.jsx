@@ -109,6 +109,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  AudioModule,
+  RecordingPresets,
+  setAudioModeAsync,
+} from "expo-audio";
+import { createVoiceRecorder } from "../../utils/voiceRecorder";
 import colors from "../../constants/colors";
 import config from "../../constants/config";
 import layout from "../../constants/layout";
@@ -144,6 +150,7 @@ function ChatInput({
   user,
   onSend,
   onTyping,
+  onChangeText = () => {},
   replyTo,
   onReplyChange,
   listRef,
@@ -199,283 +206,165 @@ function ChatInput({
   // "+" button becomes a keyboard icon that restores the keyboard on tap.
   const [showAttachmentSheet, setShowAttachmentSheet] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  // Ref for the text <TextInput> — focused/blurred from the keyboard &
+  // attachment-panel logic in the callbacks below.
   const inputRef = useRef(null);
-  const [waveAnim] = useState(() => new Animated.Value(0));
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const recordingTimer = useRef(null);
+  // ── Recording-lifecycle refs — declared early so every effect + cleanup
+  // that touches them is defined after they exist (avoids a TDZ /
+  // forward-reference crash when a hook body runs during render). These refs
+  // are the single source of truth for "are we capturing / paused /
+  // swiped-up / view-once?", so the gesture responders, timer effects, and
+  // locked-panel render all derive from them consistently.
   const recordingActiveRef = useRef(false);
-  // True once the finger has travelled past the swipe-up threshold. Decides
-  // on release whether we LOCK (hands-free) or SEND (plain hold).
   const didSwipeUpRef = useRef(false);
   const isPausedRef = useRef(false);
-  const recordingDurationRef = useRef(0);
   const viewOnceRef = useRef(false);
-  // Pending "has the finger been down long enough to record?" timer.
   const holdTimerRef = useRef(null);
 
+  // A JS-only controller is created on mount; native allocation is deferred
+  // until permission and audio mode have succeeded after a mic gesture.
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [micEnergy, setMicEnergy] = useState(0);
+  const controllerRef = useRef(null);
+  const mountedRef = useRef(false);
+  const holdingRef = useRef(false);
+  const callbacksRef = useRef({ onToast, onTyping });
+  callbacksRef.current = { onToast, onTyping };
+
   const clearHoldTimer = useCallback(() => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
+    clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = null;
   }, []);
 
-  // Keep the latest onTyping callback in a ref so the unmount cleanup below can
-  // clear the typing flag without re-running on every parent render.
-  const onTypingRef = useRef(onTyping);
   useEffect(() => {
-    onTypingRef.current = onTyping;
-  }, [onTyping]);
-
-  // Clear the pending hold timer, the recording timer and the typing flag on
-  // unmount so a mid-gesture unmount can't leave a stale timer behind.
-  useEffect(() => {
-    return () => {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
-      if (recordingTimer.current) {
-        clearInterval(recordingTimer.current);
-        recordingTimer.current = null;
-      }
-      onTypingRef.current?.(false);
-    };
-  }, []);
-
-  // Voice recording wave animation loop — frozen while paused.
-  useEffect(() => {
-    if (!isRecording || isPaused) return;
-
-    waveAnim.setValue(0);
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(waveAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(waveAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [isRecording, isPaused, waveAnim]);
-
-  // ── Handlers ──────────────────────────────────────
-  const send = useCallback(() => {
-    const text = draft.trim();
-    if (!text && !replyTo) return;
-
-    const textViewOnce = viewOnceRef.current;
-    onSend?.({
-      conversationId,
-      message: {
-        id: `${messageIdPrefix}-${Date.now()}`,
-        text: text.slice(0, maxMessageLength),
-        senderId: user?.id,
-        senderName: user?.name,
-        senderAvatar: user?.avatarUrl,
-        isMine: true,
-        createdAt: new Date().toISOString(),
-        status: "sent",
-        viewOnce: textViewOnce,
-        replyTo: replyTo
-          ? {
-              id: replyTo.id,
-              text: replyTo.text?.slice(0, 100),
-              senderName: replyTo.isMine
-                ? "You"
-                : replyTo.senderName || "Unknown",
-            }
-          : undefined,
+    mountedRef.current = true;
+    const controller = createVoiceRecorder({
+      audio: AudioModule,
+      setAudioMode: setAudioModeAsync,
+      createRecorder: () => {
+        const preset = RecordingPresets.HIGH_QUALITY;
+        // Match SDK 54 useAudioRecorder's platform-option flattening without
+        // importing private Expo helpers or allocating during React render.
+        const { android, ios, web, ...common } = preset;
+        return new AudioModule.AudioRecorder({
+          ...common,
+          ...Platform.select({ android, ios, default: web }),
+          isMeteringEnabled: true,
+        });
       },
+      onState: ({ phase, durationMillis, energy }) => {
+        if (!mountedRef.current) return;
+        const active = ["recording", "paused"].includes(phase);
+        recordingActiveRef.current = active;
+        isPausedRef.current = phase === "paused";
+        setIsRecording(active || ["stopping", "stopped"].includes(phase));
+        setIsPaused(phase === "paused");
+        setRecordingDuration(Math.floor(durationMillis / 1000));
+        setMicEnergy(energy);
+        if (phase === "idle") {
+          setIsLocked(false);
+          setIsCancelling(false);
+          didSwipeUpRef.current = false;
+          setRecordingDuration(0);
+        }
+      },
+      onError: (message) => callbacksRef.current.onToast?.(message, "error"),
     });
+    controllerRef.current = controller;
+    return () => {
+      mountedRef.current = false;
+      holdingRef.current = false;
+      recordingActiveRef.current = false;
+      didSwipeUpRef.current = false;
+      isPausedRef.current = false;
+      clearHoldTimer();
+      callbacksRef.current.onTyping?.(false);
+      controllerRef.current = null;
+      void controller.dispose();
+    };
+  }, [clearHoldTimer]);
 
+  useEffect(() => {
+    onTyping?.(Boolean(draft.trim()));
+  }, [draft, onTyping]);
+
+  const waveBars = useMemo(() => Array.from({ length: 16 }, (_, i) => {
+    const base = 0.15 + ((i * 7) % 5) * 0.06;
+    const peak = 1 - Math.abs((i % 7) - 3) * 0.12;
+    return Math.min(1, base + peak * micEnergy);
+  }), [micEnergy]);
+
+  const startRecording = useCallback(async () => {
+    const controller = controllerRef.current;
+    if (!holdingRef.current || !controller || controller.phase !== "idle") return;
+    const started = await controller.start();
+    if (!started || !mountedRef.current || controllerRef.current !== controller) return;
     setDraft("");
     setViewOnce(false);
     viewOnceRef.current = false;
-    onReplyChange?.(null);
-    onTyping?.(false);
-    requestAnimationFrame(() => {
-      listRef?.current?.scrollToEnd?.({ animated: true });
-    });
-  }, [
-    draft,
-    replyTo,
-    conversationId,
-    user,
-    onSend,
-    onReplyChange,
-    onTyping,
-    listRef,
-    maxMessageLength,
-    messageIdPrefix,
-  ]);
-
-  const onChangeText = useCallback(
-    (value) => {
-      setDraft(value);
-      onTyping?.(value.length > 0);
-    },
-    [onTyping],
-  );
-
-  const startRecordingTimer = useCallback(() => {
-    if (recordingTimer.current) clearInterval(recordingTimer.current);
-    recordingTimer.current = setInterval(() => {
-      recordingDurationRef.current += 1;
-      setRecordingDuration(recordingDurationRef.current);
-    }, 1000);
-  }, []);
-
-  const stopRecordingTimer = useCallback(() => {
-    if (recordingTimer.current) {
-      clearInterval(recordingTimer.current);
-      recordingTimer.current = null;
-    }
-  }, []);
-
-  const startRecording = useCallback(() => {
-    if (recordingActiveRef.current) return;
-    recordingActiveRef.current = true;
-
-    setIsRecording(true);
-    setIsCancelling(false);
-    setIsLocked(false);
-    setIsPaused(false);
-    isPausedRef.current = false;
-    setViewOnce(false);
-    viewOnceRef.current = false;
-    didSwipeUpRef.current = false;
-    setDraft("");
-    recordingDurationRef.current = 0;
-    setRecordingDuration(0);
-    startRecordingTimer();
+    callbacksRef.current.onTyping?.(false);
     if (onRecordStart) onRecordStart();
     else onToast?.("Recording...", "info");
-  }, [onRecordStart, onToast, startRecordingTimer]);
+  }, [onRecordStart, onToast]);
 
-  // `cancelled` is true when the finger was dragged back down past the cancel
-  // threshold before releasing, which discards the note instead of sending it.
-  // Guarded so one gesture can only ever stop one recording.
-  // `asVoice` also stamps duration + waveform + view-once onto the outgoing
-  // payload so voice notes render in MessageBubble.
-  const stopRecording = useCallback(
-    (cancelled = false, asVoice = true) => {
-      if (!recordingActiveRef.current) return;
-      recordingActiveRef.current = false;
-
-      stopRecordingTimer();
-      const duration = recordingDurationRef.current;
-      const voiceViewOnce = viewOnceRef.current;
-      setIsRecording(false);
-      setIsCancelling(false);
-      setIsLocked(false);
-      setIsPaused(false);
-      isPausedRef.current = false;
-      didSwipeUpRef.current = false;
-      setViewOnce(false);
-      viewOnceRef.current = false;
-      setRecordingDuration(0);
-      recordingDurationRef.current = 0;
-
-      if (cancelled) {
-        if (onRecordStop) {
-          onRecordStop(true);
-        } else {
-          onToast?.("Recording cancelled", "info");
-        }
-        return;
-      }
-
-      if (asVoice) {
-        onSend?.({
-          conversationId,
-          message: {
-            id: `${messageIdPrefix}-${Date.now()}`,
-            text: "",
-            mediaType: "voice",
-            duration,
-            // Placeholder pulse heights until a real recorder (expo-audio)
-            // streams metering levels.
-            waveform: Array.from({ length: 20 }, (_, i) => {
-              const t = (duration + i) % 20;
-              return 0.25 + 0.75 * Math.abs(Math.sin((t / 20) * Math.PI));
-            }),
-            viewOnce: voiceViewOnce,
-            senderId: user?.id,
-            senderName: user?.name,
-            senderAvatar: user?.avatarUrl,
-            isMine: true,
-            createdAt: new Date().toISOString(),
-            status: "sent",
-            replyTo: replyTo
-              ? {
-                  id: replyTo.id,
-                  text: replyTo.text?.slice(0, 100),
-                  senderName: replyTo.isMine
-                    ? "You"
-                    : replyTo.senderName || "Unknown",
-                }
-              : undefined,
-          },
-        });
-        setDraft("");
-        onReplyChange?.(null);
-        onTyping?.(false);
-        requestAnimationFrame(() => {
-          listRef?.current?.scrollToEnd?.({ animated: true });
-        });
-      }
-
-      if (onRecordStop) {
-        onRecordStop(false);
-      } else {
-        onToast?.("Voice note sent", "success");
-      }
-    },
-    [
-      conversationId,
-      listRef,
-      messageIdPrefix,
-      onRecordStop,
-      onReplyChange,
-      onSend,
-      onToast,
-      onTyping,
-      replyTo,
-      stopRecordingTimer,
-      user,
-    ],
-  );
-
-  const discardRecording = useCallback(() => {
-    stopRecording(true);
-  }, [stopRecording]);
-
-  const sendRecording = useCallback(() => {
-    stopRecording(false);
-  }, [stopRecording]);
-
-  const togglePauseRecording = useCallback(() => {
-    if (!recordingActiveRef.current) return;
-    if (isPausedRef.current) {
-      // Resume — restart the second counter; the timer ref keeps ticking
-      // state stays the single source of truth for duration.
-      isPausedRef.current = false;
-      setIsPaused(false);
-      startRecordingTimer();
-    } else {
-      isPausedRef.current = true;
-      setIsPaused(true);
-      stopRecordingTimer();
+  const stopRecording = useCallback(async (cancelled = false) => {
+    const controller = controllerRef.current;
+    if (!controller || !["recording", "paused"].includes(controller.phase)) return;
+    const voiceViewOnce = viewOnceRef.current;
+    const waveform = waveBars.slice();
+    const take = await controller.finish(cancelled);
+    if (!mountedRef.current || controllerRef.current !== controller) return;
+    setViewOnce(false);
+    viewOnceRef.current = false;
+    if (cancelled) {
+      if (onRecordStop) onRecordStop(true);
+      else onToast?.("Recording cancelled", "info");
+      return;
     }
-  }, [startRecordingTimer, stopRecordingTimer]);
+    if (!take) return;
+    try {
+      await onSend?.({
+        conversationId,
+        message: {
+          id: `${messageIdPrefix}-${Date.now()}`,
+          text: "",
+          mediaType: "voice",
+          duration: take.duration,
+          mediaUrl: take.uri,
+          waveform,
+          viewOnce: voiceViewOnce,
+          senderId: user?.id,
+          senderName: user?.name,
+          senderAvatar: user?.avatarUrl,
+          isMine: true,
+          createdAt: new Date().toISOString(),
+          status: "sent",
+          replyTo: replyTo ? {
+            id: replyTo.id,
+            text: replyTo.text?.slice(0, 100),
+            senderName: replyTo.isMine ? "You" : replyTo.senderName || "Unknown",
+          } : undefined,
+        },
+      });
+      if (!mountedRef.current) return;
+      onReplyChange?.(null);
+      onTyping?.(false);
+      listRef?.current?.scrollToEnd?.({ animated: true });
+      if (onRecordStop) onRecordStop(false);
+      else onToast?.("Voice note sent", "success");
+    } catch (error) {
+      if (mountedRef.current) onToast?.(`Sending failed: ${error.message}`, "error");
+    }
+  }, [conversationId, listRef, messageIdPrefix, onRecordStop, onReplyChange,
+    onSend, onToast, onTyping, replyTo, user, waveBars]);
+
+  const discardRecording = useCallback(() => stopRecording(true), [stopRecording]);
+  const sendRecording = useCallback(() => stopRecording(false), [stopRecording]);
+  const togglePauseRecording = useCallback(() => {
+    const controller = controllerRef.current;
+    if (controller?.phase === "paused") controller.resume();
+    else if (controller?.phase === "recording") controller.pause();
+  }, []);
 
   const toggleViewOnce = useCallback(() => {
     viewOnceRef.current = !viewOnceRef.current;
@@ -521,6 +410,32 @@ function ChatInput({
     }
   }, [showAttachmentSheet, openAttachmentSheet]);
 
+  const send = useCallback(() => {
+    if (!draft.trim()) return;
+    const isViewOnce = viewOnceRef.current;
+    onSend?.({
+      conversationId,
+      message: {
+        id: `${messageIdPrefix}-${Date.now()}`,
+        text: draft.trim(),
+        createdAt: new Date().toISOString(),
+        senderId: user?.id,
+        senderName: user?.name,
+        senderAvatar: user?.avatarUrl,
+        isMine: true,
+        status: "sent",
+        viewOnce: isViewOnce,
+      },
+    });
+    setDraft("");
+    setViewOnce(false);
+    viewOnceRef.current = false;
+    onTyping?.(false);
+    requestAnimationFrame(() => {
+      listRef?.current?.scrollToEnd?.({ animated: true });
+    });
+  }, [draft, conversationId, onSend, onTyping, messageIdPrefix, user, listRef]);
+
   const handleAttachmentPress = useCallback(
     (item) => {
       const attachmentViewOnce = viewOnceRef.current;
@@ -552,8 +467,6 @@ function ChatInput({
       startRecording,
       stopRecording,
       clearHoldTimer,
-      startRecordingTimer,
-      stopRecordingTimer,
       // Marks the in-progress HOLD gesture as "swipe-up seen". Intentionally
       // does NOT setIsLocked here — the locked panel swaps out the mic view,
       // so flipping it mid-gesture would unmount the responder and drop the
@@ -567,8 +480,6 @@ function ChatInput({
     startRecording,
     stopRecording,
     clearHoldTimer,
-    startRecordingTimer,
-    stopRecordingTimer,
   ]);
 
   const micPanResponder = useMemo(
@@ -583,6 +494,7 @@ function ChatInput({
         // onPanResponderTerminate, which would bin the note being recorded.
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: () => {
+          holdingRef.current = true;
           didSwipeUpRef.current = false;
           setIsLocked(false);
           setIsCancelling(false);
@@ -611,6 +523,8 @@ function ChatInput({
           }
         },
         onPanResponderRelease: (_, gestureState) => {
+          holdingRef.current = false;
+          controllerRef.current?.cancelStart();
           recordingControlsRef.current.clearHoldTimer?.();
           if (recordingActiveRef.current) {
             // Dragged down past the cancel threshold → discard (the red tint
@@ -633,9 +547,7 @@ function ChatInput({
             // screen: freeze the second counter + wave, then show the locked
             // panel as a preview (timer / wave / view-once / delete / play /
             // send). Nothing sends here either.
-            recordingControlsRef.current.stopRecordingTimer?.();
-            isPausedRef.current = true;
-            setIsPaused(true);
+            controllerRef.current?.pause();
             setIsLocked(true);
             setIsCancelling(false);
             return;
@@ -643,6 +555,8 @@ function ChatInput({
           // Otherwise it was a plain tap: nothing recorded, nothing sent.
         },
         onPanResponderTerminate: () => {
+          holdingRef.current = false;
+          controllerRef.current?.cancelStart();
           recordingControlsRef.current.clearHoldTimer?.();
           if (recordingActiveRef.current) {
             recordingControlsRef.current.stopRecording?.(true);
@@ -787,7 +701,7 @@ function ChatInput({
                 },
               ]}
             >
-              {Array.from({ length: 16 }).map((_, i) => (
+              {waveBars.map((energy, i) => (
                 <Animated.View
                   key={i}
                   style={[
@@ -795,16 +709,15 @@ function ChatInput({
                     styles.lockedWaveBar,
                     {
                       backgroundColor: recordingAccent,
+                      // When paused, the mic isn't streaming — hold the last
+                      // energy we saw, dimmed so it reads as "frozen".
                       opacity: isPaused ? 0.35 : 1,
                       transform: [
                         {
-                          scaleY: waveAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [
-                              0.15 + ((i * 7) % 5) * 0.08,
-                              1 - Math.abs((i % 7) - 3) * 0.1,
-                            ],
-                          }),
+                          scaleY: Math.max(
+                            0.12,
+                            Math.min(1, energy),
+                          ),
                         },
                       ],
                     },
@@ -951,22 +864,18 @@ function ChatInput({
                 },
               ]}
             >
-              {Array.from({ length: 7 }).map((_, i) => (
+              {waveBars.slice(0, 7).map((energy, i) => (
                 <Animated.View
                   key={i}
                   style={[
                     styles.waveBar,
                     {
                       backgroundColor: recordingAccent,
+                      // Live mic energy drives the bar height; silence still
+                      // shows a thin bar rather than collapsing to zero.
                       transform: [
                         {
-                          scaleY: waveAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [
-                              0.15 + i * 0.05,
-                              1 - Math.abs(i - 3) * 0.1,
-                            ],
-                          }),
+                          scaleY: Math.max(0.12, Math.min(1, energy)),
                         },
                       ],
                     },
@@ -996,7 +905,10 @@ function ChatInput({
               <TextInput
                 ref={inputRef}
                 value={draft}
-                onChangeText={onChangeText}
+                onChangeText={(text) => {
+                  setDraft(text);
+                  onChangeText(text);
+                }}
                 placeholder={placeholder}
                 placeholderTextColor={theme.text.tertiary}
                 maxLength={maxMessageLength}

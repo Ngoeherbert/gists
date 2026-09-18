@@ -42,6 +42,15 @@ const initialState = {
   replyTo: null,
   draftByConversation: {}, // conversationId -> text
 
+  // Internal bookkeeping for view-once messages that have been "downloaded"
+  // into the secure reveal flow. A view-once message is BLOCKED while in a
+  // conversation thread — its content is never rendered there — and only
+  // becomes viewable once it has been downloaded into this collection.
+  // Each entry: { id, conversationId, message, viewed }
+  //   viewed    -> true once it has been revealed in the preview modal
+  //                (consumed) so the same payload can't be re-opened.
+  viewOnceMessages: [],
+
   // Gist rooms (group watch/play sessions)
   rooms: {}, // roomId -> room
   activeRoomId: null,
@@ -186,6 +195,8 @@ const useChatStore = create((set, get) => ({
   receiveMessage: ({ conversationId, message }) =>
     set((state) => {
       const prev = state.threads[conversationId] || makeThread();
+
+      // View-once payloads arrive locked; the recipient downloads via the bubble.
       const thread = {
         ...prev,
         ids: [...prev.ids, message.id],
@@ -204,6 +215,15 @@ const useChatStore = create((set, get) => ({
             },
           }
         : state.conversationsById;
+
+      const existing = state.viewOnceMessages.find((m) => m.id === message.id);
+      const receivedViewOnce = Boolean(message.viewOnce) && !message.isMine;
+      const viewOnceMessages = receivedViewOnce
+        ? existing
+          ? state.viewOnceMessages
+          : [...state.viewOnceMessages, { id: message.id, conversationId, message, viewed: false }]
+        : state.viewOnceMessages;
+
       return {
         threads: { ...state.threads, [conversationId]: thread },
         conversationsById,
@@ -255,6 +275,74 @@ const useChatStore = create((set, get) => ({
       const nextThread = { ...thread, ids: thread.ids.filter((id) => id !== messageId), byId };
       return { threads: { ...state.threads, [conversationId]: nextThread } };
     }),
+
+  // -------------------------------------------------------------------------
+  // View-once messages
+  // -------------------------------------------------------------------------
+  // `message` here is the full message object (text / image / video / voice).
+  // The caller has already validated that `message.viewOnce` is set. We:
+  //   1) flip the in-thread flag so the bubble stops prompting to download, and
+  //   2) collect the payload into the secure viewer list (deduped by id).
+  // A real backend would await the protected fetch here; the mock resolves
+  // synchronously so the UI updates instantly.
+  downloadViewOnceMessage: ({ conversationId, message }) =>
+    set((state) => {
+      const thread = state.threads[conversationId];
+      const threads = { ...state.threads };
+      if (thread?.byId[message.id]) {
+        threads[conversationId] = {
+          ...thread,
+          byId: {
+            ...thread.byId,
+            [message.id]: { ...thread.byId[message.id], viewOnceDownloaded: true },
+          },
+        };
+      }
+      const existing = state.viewOnceMessages.find((m) => m.id === message.id);
+      const viewOnceMessages = existing
+        ? state.viewOnceMessages.map((m) =>
+            m.id === message.id
+              ? { ...m, conversationId, message }
+              : m,
+          )
+        : [
+            ...state.viewOnceMessages,
+            { id: message.id, conversationId, message, viewed: false },
+          ];
+      return { threads, viewOnceMessages };
+    }),
+
+  // Opening a message in the viewer consumes its one-time reveal. Marking it
+  // viewed prevents a second open AND flips `viewOnceConsumed` on the thread
+  // message, which is what drives the "Opened" receipt on the sender's bubble.
+  markViewOnceViewed: (messageId) =>
+    set((state) => {
+      const viewOnceMessages = state.viewOnceMessages.map((m) =>
+        m.id === messageId ? { ...m, viewed: true } : m,
+      );
+      const threads = { ...state.threads };
+      viewOnceMessages.forEach((entry) => {
+        if (entry.id === messageId) {
+          const thread = threads[entry.conversationId];
+          if (thread?.byId[messageId]) {
+            threads[entry.conversationId] = {
+              ...thread,
+              byId: {
+                ...thread.byId,
+                [messageId]: { ...thread.byId[messageId], viewOnceConsumed: true },
+              },
+            };
+          }
+        }
+      });
+      return { viewOnceMessages, threads };
+    }),
+
+  // Toss consumed entries so the viewer doesn't fill up with dimmed ghosts.
+  clearViewedOnceMessages: () =>
+    set((state) => ({
+      viewOnceMessages: state.viewOnceMessages.filter((m) => !m.viewed),
+    })),
 
   reactToMessage: ({ conversationId, messageId, emoji }) =>
     set((state) => {

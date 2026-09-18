@@ -22,8 +22,11 @@ export default function ChatsLayout() {
       <Stack.Screen name="search" />
       <Stack.Screen name="new-gist" />
       <Stack.Screen name="ai" />
-      <Stack.Screen name="info" />
       <Stack.Screen name="[id]" />
+      <Stack.Screen
+        name="info"
+        href="/(main)/chats/info"
+      />
       <Stack.Screen name="archived" />
       <Stack.Screen
         name="call/voice"

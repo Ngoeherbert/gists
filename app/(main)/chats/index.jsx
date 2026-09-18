@@ -39,29 +39,36 @@ export default function ChatsScreen() {
     fetchConversations();
   }, [fetchConversations]);
 
-  const sorted = [...conversations].sort((a, b) => {
-    const aPinned = pinned.includes(a.id) ? 1 : 0;
-    const bPinned = pinned.includes(b.id) ? 1 : 0;
-    if (aPinned !== bPinned) return bPinned - aPinned;
-    return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
-  });
+  const sorted =
+    conversations && Array.isArray(conversations)
+      ? [...conversations].sort((a, b) => {
+          const aPinned = pinned.includes(a.id) ? 1 : 0;
+          const bPinned = pinned.includes(b.id) ? 1 : 0;
+          if (aPinned !== bPinned) return bPinned - aPinned;
+          return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
+        })
+      : [];
 
   const archived = useChatStore((s) => s.archived);
-  const archivedConversations = conversations.filter((c) =>
-    archived.includes(c.id),
-  );
+  const archivedConversations = Array.isArray(conversations)
+    ? conversations.filter((c) => archived.includes(c.id))
+    : [];
 
   // Filter out archived from main list
-  const nonArchived = sorted.filter((c) => !archived.includes(c.id));
+  const nonArchived = Array.isArray(sorted)
+    ? sorted.filter((c) => !archived.includes(c?.id))
+    : [];
 
-  const filtered = nonArchived.filter((c) => {
-    if (filter === "unread") return (c.unreadCount ?? 0) > 0;
-    if (filter === "groups") return c.type === "group";
-    if (filter === "fav") return pinned.includes(c.id);
-    if (filter === "updates")
-      return c.type === "group" || c.name?.includes("Gist");
-    return true;
-  });
+  const filtered = Array.isArray(nonArchived)
+    ? nonArchived.filter((c) => {
+        if (filter === "unread") return (c.unreadCount ?? 0) > 0;
+        if (filter === "groups") return c.type === "group";
+        if (filter === "fav") return pinned.includes(c.id);
+        if (filter === "updates")
+          return c.type === "group" || c.name?.includes("Gist");
+        return true;
+      })
+    : [];
 
   const openConversation = useCallback(
     (conversation) => {
@@ -173,7 +180,7 @@ export default function ChatsScreen() {
                 onPress={() => router.navigate("/(main)/chats/search")}
               />
               <IconButton
-                name="create-outline"
+                name="add-outline"
                 onPress={() => router.navigate("/(main)/chats/new-gist")}
               />
             </View>
@@ -186,14 +193,16 @@ export default function ChatsScreen() {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <ConversationRow
-              conversation={item}
-              muted={muted.includes(item.id)}
-              onPress={openConversation}
-            />
-          )}
+          keyExtractor={(item) => item?.id ?? Math.random().toString(36).slice(2)}
+          renderItem={({ item }) =>
+            item ? (
+              <ConversationRow
+                conversation={item}
+                muted={item?.id && muted.includes(item.id)}
+                onPress={openConversation}
+              />
+            ) : null
+          }
           showsVerticalScrollIndicator={false}
           contentContainerStyle={
             filtered.length === 0 ? styles.empty : undefined

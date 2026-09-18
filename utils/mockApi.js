@@ -211,6 +211,97 @@ export function makeConversations() {
   return conversations;
 }
 
+// ── Seeded view-once dummy messages ──────────────────────────────────
+// One view-once payload per type (text / photo / video / voice) plus an extra
+// received video, appended to every direct conversation so the one-tap,
+// one-view flow is demoable:
+//   • text + photo + video_in + voice -> received (bubble: "Tap to open (one
+//     view)" — reveals in the in-chat preview modal)
+//   • video (vo_video)                -> sent (bubble: "Sent — view once";
+//     flips to "Opened" when the receiver views it)
+// They render as locked bubbles (icon + type + timestamp) in the thread and
+// only reveal their content inside the secure ViewOnce viewer.
+export function makeViewOnceMessages(conversationId) {
+  const peer = Object.values(PEOPLE).find((p) => `c_${p.id}` === conversationId);
+  const minutesAgo = (m) => new Date(Date.now() - m * 60 * 1000).toISOString();
+
+  const base = (key, mine, minutes) => ({
+    id: `m_${conversationId}_${key}`,
+    conversationId,
+    senderId: mine ? "u_me" : (peer?.id ?? conversationId),
+    senderName: mine ? "You" : (peer?.name ?? "Unknown"),
+    senderAvatar: mine ? null : (peer?.avatarUrl ?? null),
+    isMine: mine,
+    viewOnce: true,
+    status: mine ? "sent" : undefined,
+    createdAt: minutesAgo(minutes),
+  });
+
+  return [
+    // Received — text view-once (tap once to read, then gone)
+    {
+      ...base("vo_text", false, 55),
+      text: "This message self-destructs after one read 👀",
+    },
+
+    // Received — photo view-once
+    {
+      ...base("vo_photo", false, 40),
+      mediaType: "image",
+      mediaUrl: `https://picsum.photos/seed/viewonce${conversationId}/800/1000`,
+      text: "",
+    },
+
+    // Sent — video view-once (sender side: locked, can never be re-opened)
+    {
+      ...base("vo_video", true, 30),
+      mediaType: "video",
+      mediaUrl:
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      text: "",
+      duration: 21,
+    },
+
+    // Received — video view-once (tap once to reveal)
+    {
+      ...base("vo_video_in", false, 18),
+      mediaType: "video",
+      mediaUrl:
+        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+      text: "",
+      duration: 32,
+    },
+
+    // Received — voice note view-once
+    {
+      ...base("vo_voice", false, 12),
+      mediaType: "voice",
+      duration: 14,
+      waveform: Array.from({ length: 24 }, (_, i) => 0.25 + 0.5 * Math.abs(Math.sin(i * 1.7))),
+    },
+  ];
+}
+
+// Seeded PDF file message — tapping it downloads to cache and hands the file
+// to the phone's PDF viewer (system share sheet -> "Open with …").
+export function makeFileMessage(conversationId) {
+  const peer = Object.values(PEOPLE).find((p) => `c_${p.id}` === conversationId);
+  const minutesAgo = (m) => new Date(Date.now() - m * 60 * 1000).toISOString();
+  return {
+    id: `m_${conversationId}_file`,
+    conversationId,
+    senderId: peer?.id ?? conversationId,
+    senderName: peer?.name ?? "Unknown",
+    senderAvatar: peer?.avatarUrl ?? null,
+    isMine: false,
+    mediaType: "file",
+    fileName: "gists-spec-sheet.pdf",
+    fileSize: 69234,
+    mediaUrl: "https://pdfobject.com/pdf/sample.pdf",
+    createdAt: minutesAgo(6),
+  };
+}
+
 export function makeMessages(conversationId, count = 15, offset = 0) {
   const authors = Object.values(PEOPLE);
   const isGroup = conversationId.startsWith("c_gist") || conversationId.startsWith("c_design");
@@ -272,7 +363,8 @@ export function makeMessages(conversationId, count = 15, offset = 0) {
       return {
         ...base,
         mediaType: "video",
-        mediaUrl: null,
+        mediaUrl:
+          "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
         text: "📹 Video",
         duration: 15 + (n % 45),
       };
@@ -285,7 +377,11 @@ export function makeMessages(conversationId, count = 15, offset = 0) {
       duration: 10 + (n % 60),
       waveform: Array.from({ length: 20 }, () => Math.random()),
     };
-  });
+  }).concat(
+    isGroup
+      ? []
+      : [...makeViewOnceMessages(conversationId), makeFileMessage(conversationId)],
+  );
 }
 
 export function makeNotifications(count = 18, offset = 0) {
