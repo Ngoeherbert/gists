@@ -2,15 +2,12 @@
 // A single chat message. Own messages align right and use the brand bubble;
 // incoming messages align left. Includes a timestamp and read receipt.
 
-import React, { memo, useState } from "react";
-import {
-  Pressable,
-  StyleSheet,
-  View,
-  Image,
-  Animated,
-} from "react-native";
+import React, { memo, useRef } from "react";
+import { Pressable, StyleSheet, View, Image, Animated } from "react-native";
+import { PanGestureHandler, State } from "react-native-gesture-handler";
+import Svg, { Path } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
@@ -30,12 +27,13 @@ function timeLabel(ts) {
 const VIEW_ONCE_TYPE = {
   image: "Photo",
   video: "Video",
-  voice: "Voice note",
+  voice: "Voice",
 };
 
 function viewOnceTypeLabel(message) {
   if (!message) return "Text";
-  if (VIEW_ONCE_TYPE[message.mediaType]) return VIEW_ONCE_TYPE[message.mediaType];
+  if (VIEW_ONCE_TYPE[message.mediaType])
+    return VIEW_ONCE_TYPE[message.mediaType];
   return message.text ? "Text" : "Message";
 }
 
@@ -60,31 +58,33 @@ function fileSizeLabel(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// WhatsApp-style curved tail: a quarter-circle extension at a bubble corner.
+// iMessage-style curved tail: a small comma-shaped flick sitting just
+// outside the bubble's bottom corner (the bubble itself stays a full,
+// evenly-rounded pill — the corner is never flattened for the tail).
 // `side` is 'left' (received, bottom-left tail) or 'right' (sent, bottom-right tail).
+// Requires react-native-svg — run `npx expo install react-native-svg`
+// (or `pnpm add react-native-svg`) if it isn't in the project yet.
 function BubbleTail({ side, color }) {
+  const isRight = side === "right";
+  // Sent (right): tail hangs below the bottom-right corner.
+  // Received (left): tail points upward from the top-left corner.
   return (
     <View
       style={{
-        position: 'absolute',
-        [side]: -8,
-        bottom: 0,
-        width: 8,
-        height: 8,
-        overflow: 'hidden',
+        position: "absolute",
+        [isRight ? "bottom" : "top"]: isRight ? -10 : -10,
+        [side]: -40,
+        width: 52,
+        height: 52,
+        transform: isRight
+          ? undefined
+          : [{ scaleX: -1 }, { scaleY: -1 }],
       }}
+      pointerEvents="none"
     >
-      <View
-        style={{
-          width: 16,
-          height: 16,
-          borderRadius: 8,
-          backgroundColor: color,
-          position: 'absolute',
-          bottom: 0,
-          [side]: 0,
-        }}
-      />
+      <Svg width={52} height={52} viewBox="0 0 52 52">
+        <Path d="M0,0 Q0,34.4 23.3,46.2 Q8.6,49.2 0,28.8 Z" fill={color} />
+      </Svg>
     </View>
   );
 }
@@ -92,11 +92,22 @@ function BubbleTail({ side, color }) {
 function MessageBubble({
   message,
   onLongPress,
+  onPress,
+  onReply,
+  selected = false,
   showAvatar = true,
   showName = false,
   isGroup = false,
   showTail = true,
   isGrouped = false,
+  // True when the NEXT message in the thread comes from the other participant
+  // (and isn't split off by a date divider). The bubble then leaves extra room
+  // below itself so a sent message and a received reply never read as one
+  // block. Declared here — rather than as a marginTop on the incoming bubble —
+  // because marginBottom is this row's only spacing knob: an incoming marginTop
+  // would stack on top of whatever the previous row already reserved, giving
+  // 4 + top after a grouped run but 12 + top after a lone message.
+  senderSwitchAfter = false,
   onViewOnceDownload,
   onViewOnceOpen,
   onMediaPress,
@@ -118,43 +129,55 @@ function MessageBubble({
       ? colors.chatBubbleOther
       : "#F1F1F5";
   const textColor = mine ? colors.white : isDark ? colors.white : "#111118";
+  
+  // WhatsApp-style selection overlay color
+  const selectionOverlayColor = mine
+    ? "rgba(255,255,255,0.3)"
+    : isDark
+      ? "rgba(255,255,255,0.15)"
+      : "rgba(0,0,0,0.1)";
 
-  const [showMenu, setShowMenu] = useState(false);
-  const menuOpacity = React.useRef(new Animated.Value(0)).current;
-  const menuScale = React.useRef(new Animated.Value(0.9)).current;
-  const messageRef = React.useRef(null);
+  // Swipe-to-reply gesture (WhatsApp-style: swipe right on received, left on sent)
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const REPLY_THRESHOLD = 60; // px to trigger reply
 
-  // Animate menu in/out
-  React.useEffect(() => {
-    if (showMenu) {
-      Animated.parallel([
-        Animated.timing(menuOpacity, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.spring(menuScale, {
-          toValue: 1,
-          friction: 8,
-          tension: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(menuOpacity, {
-          toValue: 0,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(menuScale, {
-          toValue: 0.9,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
+  const onGestureEvent = Animated.event(
+    [
+      {
+        nativeEvent: {
+          translationX: swipeAnim,
+        },
+      },
+    ],
+    { useNativeDriver: true }
+  );
+
+  const onHandlerStateChange = ({ nativeEvent }) => {
+    if (nativeEvent.oldState === State.ACTIVE && nativeEvent.state === State.END) {
+      const translationX = nativeEvent.translationX;
+      // Trigger reply if swipe exceeds threshold
+      if ((!mine && translationX > REPLY_THRESHOLD) || (mine && translationX < -REPLY_THRESHOLD)) {
+        onReply?.(message);
+      }
+      // Animate back to 0
+      Animated.spring(swipeAnim, {
+        toValue: 0,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
     }
-  }, [showMenu, menuOpacity, menuScale]);
+  };
+
+  const bubbleTransform = [
+    {
+      translateX: swipeAnim.interpolate({
+        inputRange: [-REPLY_THRESHOLD * 2, -REPLY_THRESHOLD, 0, REPLY_THRESHOLD, REPLY_THRESHOLD * 2],
+        outputRange: [-REPLY_THRESHOLD * 2, -REPLY_THRESHOLD, 0, REPLY_THRESHOLD, REPLY_THRESHOLD * 2],
+        extrapolate: "clamp",
+      }),
+    },
+  ];
 
   // Sender: a view-once message can NEVER be opened by the sender — the bubble
   // only ever shows (icon, type, timestamp) plus an "Opened" receipt once the
@@ -169,16 +192,14 @@ function MessageBubble({
     onViewOnceOpen?.(message);
   };
 
-  // Cache the latest message in a ref so callbacks below always see the
-  // current value (avoids stale-closure bugs without adding an effect).
-  messageRef.current = message;
-
   return (
     <View
       style={[
         styles.row,
         mine ? styles.rowMine : styles.rowOther,
         isGrouped && styles.rowGrouped,
+        // Last so the speaker-change gap wins over the grouped spacing.
+        senderSwitchAfter && styles.rowSenderSwitch,
       ]}
     >
       {!mine && showAvatar ? (
@@ -193,98 +214,156 @@ function MessageBubble({
       )}
       <View style={styles.bubbleWrap}>
         {!mine && showName && message.senderName && (
-          <Text variant="caption" color={isDark ? "secondary_text" : "tertiary_text"} style={styles.senderName}>
+          <Text
+            variant="caption"
+            color={isDark ? "secondary_text" : "tertiary_text"}
+            style={styles.senderName}
+          >
             {message.senderName}
           </Text>
         )}
 
-        <Pressable
-          onPress={isViewOnce ? handleBubblePress : undefined}
-          onLongPress={isViewOnce ? undefined : () => setShowMenu(true)}
-          style={[
-            styles.bubble,
-            { backgroundColor: bubbleColor },
-            mine ? styles.bubbleMine : styles.bubbleOther,
-          ]}
+        <PanGestureHandler
+          onGestureEvent={onGestureEvent}
+          onHandlerStateChange={onHandlerStateChange}
+          activeOffsetX={[-REPLY_THRESHOLD, REPLY_THRESHOLD]}
+          activeOffsetY={[-8, 8]}
         >
+          <Animated.View style={[{ transform: bubbleTransform }]}>
+            <Pressable
+              // Hand the *message* to the host callbacks — a bare
+              // `onPress={onPress}` would pass the GestureResponderEvent
+              // instead, which is why the long-press action sheet could never
+              // tell an own message from a received one (hiding Edit/Delete).
+              onPress={isViewOnce ? handleBubblePress : () => onPress?.(message)}
+              onLongPress={isViewOnce ? undefined : () => onLongPress?.(message)}
+              style={[
+                styles.bubble,
+                { backgroundColor: bubbleColor },
+                isViewOnce && styles.bubblePill,
+                message.mediaType === "voice" && styles.bubbleVoicePill,
+              ]}
+            >
+          {selected && (
+            <View style={[styles.selectionOverlay, { backgroundColor: selectionOverlayColor }]} pointerEvents="none" />
+          )}
           {isViewOnce ? (
             // ── View-once: content is BLOCKED until revealed. The bubble
             //    never reveals text/media inline — that only happens in the
             //    full-screen preview modal after the tap. ──
-            <View style={styles.viewOnceLocked}>
-              <Ionicons
-                name={viewOnceIconName(message, {
-                  mine,
-                  downloaded: viewOnceDownloaded,
-                  consumed: viewOnceConsumed,
-                })}
-                size={22}
-                color={textColor}
-                style={{ opacity: 0.75 }}
-              />
+            <View style={[styles.viewOnceLocked, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
+              <View style={styles.viewOnceLockedIcon}>
+                <MaterialCommunityIcons
+                  name="progress-clock"
+                  size={24}
+                  color={textColor}
+                />
+              </View>
               <Text
                 variant="bodySmall"
-                color={isDark ? "secondary_text" : "tertiary"}
-                style={styles.viewOnceLockedText}
-              >
-                {viewOnceTypeLabel(message)}
-              </Text>
-              <Text
-                variant="caption"
-                color={isDark ? "secondary_text" : "tertiary"}
-                style={[
-                  styles.viewOnceLockedHint,
-                  { opacity: viewOnceConsumed || mine ? 0.5 : 0.75 },
-                ]}
+                style={[styles.viewOnceLockedText, { color: textColor }]}
               >
                 {mine
                   ? viewOnceConsumed
                     ? "Opened"
-                    : "Sent — view once"
+                    : "Sent"
                   : viewOnceConsumed
-                    ? "Opened — no re-views"
-                    : "Tap to open (one view)"}
+                    ? "Viewed"
+                    : viewOnceTypeLabel(message)}
               </Text>
             </View>
           ) : (
             <>
               {message.replyTo ? (
-                <View style={[styles.replyPreview, { borderLeftColor: mine ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.2)" }]}>
-                  <Text variant="caption" color={textColor} style={{ opacity: 0.8, fontWeight: "600" }}>
+                <View
+                  style={[
+                    styles.replyPreview,
+                    {
+                      borderLeftColor: mine
+                        ? "rgba(255,255,255,0.5)"
+                        : "rgba(0,0,0,0.2)",
+                    },
+                  ]}
+                >
+                  <Text
+                    variant="caption"
+                    color={textColor}
+                    style={{ opacity: 0.8, fontWeight: "600" }}
+                  >
                     {message.replyTo.senderName || "You"}
                   </Text>
-                  <Text variant="caption" color={textColor} style={{ opacity: 0.7, numberOfLines: 1 }}>
+                  <Text
+                    variant="caption"
+                    color={textColor}
+                    style={{ opacity: 0.7, numberOfLines: 1 }}
+                  >
                     {message.replyTo.text?.slice(0, 50)}
                   </Text>
                 </View>
               ) : null}
 
               {message.text ? (
-                <Text variant="body" style={[styles.text, { color: textColor }]}>
+                <Text
+                  variant="body"
+                  style={[styles.text, { color: textColor }]}
+                >
                   {message.text}
                 </Text>
               ) : null}
 
               {message.mediaType === "image" && message.mediaUrl ? (
-                <Pressable onPress={() => onMediaPress?.(message)} style={styles.mediaImage}>
-                  <Image source={{ uri: message.mediaUrl }} style={styles.mediaImageInner} />
+                <Pressable
+                  onPress={() => onMediaPress?.(message)}
+                  // The media pressable owns the touch responder, so a long
+                  // press here would otherwise never reach the bubble's own
+                  // handler and the action sheet (Edit / Delete) wouldn't open.
+                  onLongPress={
+                    isViewOnce ? undefined : () => onLongPress?.(message)
+                  }
+                  style={styles.mediaImage}
+                >
+                  <Image
+                    source={{ uri: message.mediaUrl }}
+                    style={styles.mediaImageInner}
+                  />
                 </Pressable>
               ) : null}
 
               {message.mediaType === "video" && message.mediaUrl ? (
-                <Pressable onPress={() => onMediaPress?.(message)} style={styles.mediaVideo}>
+                <Pressable
+                  onPress={() => onMediaPress?.(message)}
+                  onLongPress={
+                    isViewOnce ? undefined : () => onLongPress?.(message)
+                  }
+                  style={styles.mediaVideo}
+                >
                   <Ionicons name="play-circle" size={48} color={textColor} />
                   {message.duration ? (
-                    <Text variant="caption" color={textColor} style={styles.duration}>
-                      {Math.floor(message.duration / 60)}:{String(message.duration % 60).padStart(2, "0")}
+                    <Text
+                      variant="caption"
+                      color={textColor}
+                      style={styles.duration}
+                    >
+                      {Math.floor(message.duration / 60)}:
+                      {String(message.duration % 60).padStart(2, "0")}
                     </Text>
                   ) : null}
                 </Pressable>
               ) : null}
 
               {message.mediaType === "file" ? (
-                <Pressable onPress={() => onMediaPress?.(message)} style={styles.fileRow}>
-                  <Ionicons name="document-outline" size={26} color={textColor} />
+                <Pressable
+                  onPress={() => onMediaPress?.(message)}
+                  onLongPress={
+                    isViewOnce ? undefined : () => onLongPress?.(message)
+                  }
+                  style={styles.fileRow}
+                >
+                  <Ionicons
+                    name="document-outline"
+                    size={26}
+                    color={textColor}
+                  />
                   <View style={styles.fileMeta}>
                     <Text
                       variant="bodySmall"
@@ -293,11 +372,19 @@ function MessageBubble({
                     >
                       {message.fileName || "Attachment"}
                     </Text>
-                    <Text variant="caption" style={{ color: textColor, opacity: 0.7 }}>
+                    <Text
+                      variant="caption"
+                      style={{ color: textColor, opacity: 0.7 }}
+                    >
                       PDF · {fileSizeLabel(message.fileSize)} · Tap to open
                     </Text>
                   </View>
-                  <Ionicons name="open-outline" size={18} color={textColor} style={{ opacity: 0.8 }} />
+                  <Ionicons
+                    name="open-outline"
+                    size={18}
+                    color={textColor}
+                    style={{ opacity: 0.8 }}
+                  />
                 </Pressable>
               ) : null}
 
@@ -315,30 +402,25 @@ function MessageBubble({
           )}
 
           <View style={styles.meta}>
+            {message.edited ? (
+              <Text
+                variant="caption"
+                style={[styles.time, { color: textColor, opacity: 0.6 }]}
+              >
+                edited
+              </Text>
+            ) : null}
             <Text
               variant="caption"
               style={[styles.time, { color: textColor, opacity: 0.6 }]}
             >
               {timeLabel(message.createdAt)}
             </Text>
-            {isViewOnce ? (
+            {isViewOnce ? null : mine ? (
               <Ionicons
                 name={
-                  viewOnceConsumed
-                    ? mine
-                      ? "eye-outline" // receiver opened it
-                      : "eye-off" // consumed — no re-views
-                    : viewOnceDownloaded && !mine
-                      ? "download-outline"
-                      : "lock-closed"
+                  message.status === "read" ? "checkmark-done" : "checkmark"
                 }
-                size={14}
-                color={textColor}
-                style={[styles.receipt, { opacity: 0.6 }]}
-              />
-            ) : mine ? (
-              <Ionicons
-                name={message.status === "read" ? "checkmark-done" : "checkmark"}
                 size={14}
                 color={message.status === "read" ? colors.accent : textColor}
                 style={styles.receipt}
@@ -346,53 +428,11 @@ function MessageBubble({
             ) : null}
           </View>
         </Pressable>
-
         {showTail && !isGrouped && (
-          <BubbleTail side={mine ? 'right' : 'left'} color={bubbleColor} />
+          <BubbleTail side={mine ? "right" : "left"} color={bubbleColor} />
         )}
-
-        {showMenu && (
-          <Animated.View
-            style={[
-              styles.menuOverlay,
-              { opacity: menuOpacity },
-            ]}
-            onPress={() => setShowMenu(false)}
-            pointerEvents="box-none"
-          >
-            <Animated.View
-              style={[
-                styles.menu,
-                {
-                  backgroundColor: isDark ? colors.surface : colors.white,
-                  transform: [{ scale: menuScale }],
-                },
-              ]}
-            >
-              <Text variant="bodyMedium" color={isDark ? "secondary_text" : "tertiary_text"} style={styles.menuTitle}>
-                Message
-              </Text>
-              <Pressable style={styles.menuItem} onPress={() => { setShowMenu(false); /* copy */ }}>
-                <Ionicons name="copy-outline" size={20} color={theme.text.primary} style={styles.menuIcon} />
-                <Text variant="bodyMedium" color="default">Copy</Text>
-              </Pressable>
-              <Pressable style={styles.menuItem} onPress={() => { setShowMenu(false); /* forward */ }}>
-                <Ionicons name="send-outline" size={20} color={theme.text.primary} style={styles.menuIcon} />
-                <Text variant="bodyMedium" color="default">Forward</Text>
-              </Pressable>
-              <Pressable style={styles.menuItem} onPress={() => { setShowMenu(false); /* reply */ }}>
-                <Ionicons name="reply-outline" size={20} color={theme.text.primary} style={styles.menuIcon} />
-                <Text variant="bodyMedium" color="default">Reply</Text>
-              </Pressable>
-              {mine && (
-                <Pressable style={[styles.menuItem, styles.menuItemDestructive]} onPress={() => { setShowMenu(false); /* delete */ }}>
-                  <Ionicons name="trash-outline" size={20} color={theme.status.error} style={styles.menuIcon} />
-                  <Text variant="bodyMedium" color={theme.status.error}>Delete</Text>
-                </Pressable>
-              )}
-            </Animated.View>
           </Animated.View>
-        )}
+        </PanGestureHandler>
       </View>
     </View>
   );
@@ -402,11 +442,20 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     paddingHorizontal: spacing.screenHorizontal,
-    marginBottom: spacing.sm,
+    // Breathing room between consecutive bubbles. WhatsApp sits around 10-12px
+    // between separate messages; grouped runs close back up to a hairline.
+    marginBottom: spacing.md,
   },
-  // Consecutive messages from the same sender sit tight, WhatsApp-style.
+  // Consecutive messages from the same sender sit tight, but never touch —
+  // a small gap keeps the stacked bubbles readable.
   rowGrouped: {
-    marginBottom: spacing.xxs,
+    marginBottom: spacing.xs,
+  },
+  // Speaker change: the last bubble of one person's run leaves a wider gap so
+  // the other person's reply reads as a distinct turn instead of a continuation
+  // of the block above it.
+  rowSenderSwitch: {
+    marginBottom: spacing.xl,
   },
   rowMine: {
     justifyContent: "flex-end",
@@ -424,32 +473,21 @@ const styles = StyleSheet.create({
   },
   bubbleWrap: {
     maxWidth: "78%",
-    position: 'relative',
+    position: "relative",
   },
   senderName: {
     marginBottom: spacing.xxs,
     marginLeft: spacing.xs,
   },
   bubble: {
-    // WhatsApp-style bubble: rounded body, tail corner is sharp
-    borderRadius: layout.borderRadius.md,
+    // iMessage-style pill bubble: fully, evenly rounded on all four
+    // corners. The tail is a separate SVG element positioned just outside
+    // the bottom corner (see BubbleTail) rather than a flattened corner,
+    // so overflow must stay visible or the tail gets clipped.
+    borderRadius: 10,
     paddingHorizontal: spacing.sm + 4,
     paddingVertical: spacing.xs + 4,
-    overflow: 'hidden',
-  },
-  bubbleMine: {
-    // Sharp bottom edge for sent messages
-    borderTopLeftRadius: layout.borderRadius.md,
-    borderTopRightRadius: layout.borderRadius.md,
-    borderBottomLeftRadius: layout.borderRadius.md,
-    borderBottomRightRadius: 0,
-  },
-  bubbleOther: {
-    // Sharp bottom-left corner for received bubble (tail attachment point)
-    borderTopLeftRadius: layout.borderRadius.md,
-    borderTopRightRadius: layout.borderRadius.md,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: layout.borderRadius.md,
+    overflow: "visible",
   },
   // Modern reply preview — subtle, no harsh border
   replyPreview: {
@@ -520,7 +558,7 @@ const styles = StyleSheet.create({
   receipt: {
     marginLeft: spacing.xxs,
   },
-  // ── View-once bubble state (icon + type + timestamp only) ──
+// ── View-once bubble state (icon + type + timestamp only) ──
   //   • sent (mine, unopened) -> "Sent — view once"
   //   • opened by receiver (mine) -> "Opened"
   //   • receiver, before open -> "Tap to open (one view)"
@@ -529,64 +567,30 @@ const styles = StyleSheet.create({
   // available through the secure ViewOnce viewer after an explicit download.
   // The sender can NEVER open their own view-once message.
   viewOnceLocked: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xxs,
-    paddingVertical: spacing.sm,
-    minHeight: 56,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.m,
+    paddingVertical: 0,
+  },
+  viewOnceLockedIcon: {
+    // Fixed-width slot so the type label stays aligned regardless of icon
+    // glyph width.
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
   viewOnceLockedText: {
     fontWeight: "600",
   },
-  viewOnceLockedHint: {
-    opacity: 0.75,
-    fontStyle: "italic",
-  },
-  // Modern menu: animated, centered, with backdrop
-  menuOverlay: {
+  // Selection overlay for multi-select mode (WhatsApp-style)
+  selectionOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    // Semi-transparent backdrop for modal feel
-    backgroundColor: "rgba(0,0,0,0.3)",
-  },
-  menu: {
-    // Centered, floating card style
-    alignSelf: "center",
-    marginHorizontal: spacing.xl,
-    borderRadius: layout.borderRadius.lg,
-    paddingVertical: spacing.xs,
-    minWidth: 160,
-    // Prominent shadow for floating card effect
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  menuTitle: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    fontWeight: "600",
-    fontSize: 11,
-    color: colors.tertiary,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadius.sm,
-  },
-  menuItemDestructive: {
-    marginTop: spacing.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  menuIcon: {
-    width: 24,
+    borderRadius: 10,
   },
 });
 

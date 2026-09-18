@@ -29,6 +29,11 @@
 //                       and with false on unmount and after sending.
 //   replyTo             Message being replied to (null hides the reply bar).
 //   onReplyChange       Called with the next reply target (null to clear).
+//   editingMessage      Message being edited (null hides the edit bar). Seeds
+//                       the draft with its text and routes send -> onEditSubmit.
+//   onEditSubmit        Called with { conversationId, messageId, text } when an
+//                       edit is saved from the composer.
+//   onCancelEdit        Called when edit mode is dismissed without saving.
 //   listRef             FlatList ref; scrolled to the end after a send.
 //   onToast             (message, variant) toast helper.
 //   onAttachmentPress   Optional override for the default "coming soon" toast.
@@ -127,7 +132,7 @@ import AppIcon, { ICON_PROVIDERS } from "../ui/AppIcon";
 const DEFAULT_ATTACHMENT_OPTIONS = [
   { name: "camera-outline", label: "Camera", provider: "ionicons" },
   { name: "image-outline", label: "Photo", provider: "ionicons" },
-  { name: "videocam-outline", label: "Video", provider: "ionicons" },
+  { name: "game-controller-outline", label: "Games", provider: "ionicons" },
   { name: "document-outline", label: "File", provider: "ionicons" },
   { name: "location-outline", label: "Location", provider: "ionicons" },
   { name: "person-outline", label: "Contact", provider: "ionicons" },
@@ -153,6 +158,12 @@ function ChatInput({
   onChangeText = () => {},
   replyTo,
   onReplyChange,
+  // Message currently being edited (null when composing a new message). When
+  // set, the composer shows an "Editing message" bar, prefills the draft and
+  // routes the send button through onEditSubmit instead of onSend.
+  editingMessage,
+  onEditSubmit,
+  onCancelEdit,
   listRef,
   onToast,
   onAttachmentPress,
@@ -371,6 +382,26 @@ function ChatInput({
     setViewOnce(viewOnceRef.current);
   }, []);
 
+  // ── Edit mode ─────────────────────────────────────
+  // Entering edit mode seeds the draft with the message text and focuses the
+  // input; leaving it (send or cancel) clears the draft so a stale edit can't
+  // leak into the next message.
+  useEffect(() => {
+    if (editingMessage) {
+      setDraft(editingMessage.text ?? "");
+      setViewOnce(false);
+      viewOnceRef.current = false;
+      inputRef.current?.focus();
+    } else {
+      setDraft("");
+    }
+  }, [editingMessage]);
+
+  const cancelEdit = useCallback(() => {
+    setDraft("");
+    onCancelEdit?.();
+  }, [onCancelEdit]);
+
   // Track the keyboard height so the inline attachment panel can reuse the
   // exact same slot when the keyboard is dismissed.
   useEffect(() => {
@@ -411,13 +442,29 @@ function ChatInput({
   }, [showAttachmentSheet, openAttachmentSheet]);
 
   const send = useCallback(() => {
-    if (!draft.trim()) return;
+    const text = draft.trim();
+    if (!text) return;
+
+    // Edit mode: patch the existing message instead of appending a new one.
+    if (editingMessage) {
+      onEditSubmit?.({
+        conversationId,
+        messageId: editingMessage.id,
+        text,
+      });
+      setDraft("");
+      setViewOnce(false);
+      viewOnceRef.current = false;
+      onTyping?.(false);
+      return;
+    }
+
     const isViewOnce = viewOnceRef.current;
     onSend?.({
       conversationId,
       message: {
         id: `${messageIdPrefix}-${Date.now()}`,
-        text: draft.trim(),
+        text,
         createdAt: new Date().toISOString(),
         senderId: user?.id,
         senderName: user?.name,
@@ -434,7 +481,17 @@ function ChatInput({
     requestAnimationFrame(() => {
       listRef?.current?.scrollToEnd?.({ animated: true });
     });
-  }, [draft, conversationId, onSend, onTyping, messageIdPrefix, user, listRef]);
+  }, [
+    draft,
+    editingMessage,
+    conversationId,
+    onEditSubmit,
+    onSend,
+    onTyping,
+    messageIdPrefix,
+    user,
+    listRef,
+  ]);
 
   const handleAttachmentPress = useCallback(
     (item) => {
@@ -613,13 +670,54 @@ function ChatInput({
             : "#F3F4F6",
     },
   ];
-  // The text send button only appears for a real draft, and never
-  // mid-recording (locked mode has its own send buttons).
-  const showSendButton = !isRecording && Boolean(draft.trim() || replyTo);
+  // The text send button only appears for a real draft (or an active reply /
+  // edit), and never mid-recording (locked mode has its own send buttons).
+  // While editing, the button stays hidden until the draft actually has text.
+  const showSendButton =
+    !isRecording &&
+    Boolean(editingMessage ? draft.trim() : draft.trim() || replyTo);
 
   // ── Render ────────────────────────────────────────
   return (
     <>
+      {/* ── Edit bar ─────────────────────────────────── */}
+      {editingMessage ? (
+        <View
+          style={[
+            styles.replyBar,
+            {
+              backgroundColor: colors.primary + "10",
+              borderBottomColor: isDark ? colors.border : "rgba(0,0,0,0.08)",
+            },
+          ]}
+        >
+          <Pressable onPress={cancelEdit} style={styles.replyClose} hitSlop={8}>
+            <ComposerIcon
+              icon={replyCloseIcon}
+              provider={replyCloseIconProvider ?? iconProvider}
+              size={16}
+              color={theme.text.tertiary}
+            />
+          </Pressable>
+          <View style={styles.replyPreview}>
+            <View
+              style={[
+                styles.replyAccent,
+                { backgroundColor: theme.colors.primary },
+              ]}
+            />
+            <View style={styles.replyTextWrap}>
+              <Text variant="caption" color="primary" style={styles.replyFrom}>
+                Editing message
+              </Text>
+              <Text variant="caption" color="tertiary" numberOfLines={1}>
+                {editingMessage.text?.slice(0, 50)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       {/* ── Reply bar ────────────────────────────────── */}
       {replyTo ? (
         <View
@@ -660,6 +758,49 @@ function ChatInput({
               </Text>
             </View>
           </View>
+        </View>
+      ) : null}
+
+      {/* ── View-once toggle: appears above the composer only when the user
+          has started typing. Sits between the reply bar and the composer so
+          it never overlaps the mic / send slot. */}
+      {showViewOnce && !isRecording && !editingMessage && draft.trim() ? (
+        <View style={styles.composerViewOnceRow}>
+          <Pressable
+            onPress={toggleViewOnce}
+            hitSlop={8}
+            accessibilityRole="togglebutton"
+            accessibilityState={{ selected: viewOnce }}
+            accessibilityLabel="View once"
+            style={[
+              styles.composerViewOnceToggle,
+              {
+                backgroundColor: viewOnce
+                  ? colors.primary
+                  : isDark
+                    ? colors.surfaceLight
+                    : "#F3F4F6",
+              },
+            ]}
+          >
+            <ComposerIcon
+              icon={viewOnce ? viewOnceIcon : viewOnceOffIcon}
+              provider={
+                viewOnce
+                  ? (viewOnceIconProvider ?? iconProvider)
+                  : (viewOnceOffIconProvider ?? iconProvider)
+              }
+              size={18}
+              color={viewOnce ? colors.white : theme.text.secondary}
+            />
+          </Pressable>
+          <Text
+            variant="bodyMedium"
+            color={viewOnce ? "primary" : "secondary"}
+            style={styles.composerViewOnceLabel}
+          >
+            View once{viewOnce ? " • on" : ""}
+          </Text>
         </View>
       ) : null}
 
@@ -818,7 +959,7 @@ function ChatInput({
           style={[
             styles.composer,
             {
-              paddingBottom: insets.bottom + spacing.sm,
+              paddingBottom: insets.bottom,
               backgroundColor: isDark ? colors.surface : colors.white,
               borderTopColor: isDark ? colors.border : "rgba(0,0,0,0.08)",
             },
@@ -933,40 +1074,6 @@ function ChatInput({
               old press-only / swipe-only variants did) unmounted the responder and
               dropped the release event, which is why exactly one gesture worked on
               each screen. */}
-          {/* View-once toggle for text / file / media sends — always visible
-              (even on an empty composer) so it's there while typing and when
-              the attachment panel is open. Armed state is shared with the
-              locked recorder and the attachment sheet. */}
-          {showViewOnce && !isRecording ? (
-            <Pressable
-              onPress={toggleViewOnce}
-              hitSlop={8}
-              accessibilityRole="togglebutton"
-              accessibilityState={{ selected: viewOnce }}
-              accessibilityLabel="View once"
-              style={[
-                styles.composerViewOnce,
-                {
-                  backgroundColor: viewOnce
-                    ? colors.primary
-                    : isDark
-                      ? colors.surfaceLight
-                      : "#F3F4F6",
-                },
-              ]}
-            >
-              <ComposerIcon
-                icon={viewOnce ? viewOnceIcon : viewOnceOffIcon}
-                provider={
-                  viewOnce
-                    ? (viewOnceIconProvider ?? iconProvider)
-                    : (viewOnceOffIconProvider ?? iconProvider)
-                }
-                size={18}
-                color={viewOnce ? colors.white : theme.text.secondary}
-              />
-            </Pressable>
-          ) : null}
           {showSendButton ? (
             <Pressable onPress={send} style={styles.sendButton}>
               <ComposerIcon
@@ -994,59 +1101,15 @@ function ChatInput({
           style={[
             styles.sheetInline,
             {
-              // Extra room for the view-once row when it's shown.
-              height:
-                (keyboardHeight ? Math.min(keyboardHeight, 200) : 184) +
-                (showViewOnce ? 52 : 0),
-              paddingBottom: insets.bottom + spacing.sm,
-              backgroundColor: isDark ? colors.surface : colors.white,
-            },
-          ]}
-        >
-          {/* View-once arming while picking file / media — same shared state
-              as the composer row, so arming here carries into the send. */}
-          {showViewOnce ? (
-            <Pressable
-              onPress={toggleViewOnce}
-              hitSlop={8}
-              accessibilityRole="togglebutton"
-              accessibilityState={{ selected: viewOnce }}
-              accessibilityLabel="View once"
-              style={styles.sheetViewOnceRow}
-            >
-              <View
-                style={[
-                  styles.sheetViewOnceToggle,
-                  {
-                    backgroundColor: viewOnce
-                      ? colors.primary
-                      : isDark
-                        ? colors.surfaceLight
-                        : "#F3F4F6",
-                  },
-                ]}
-              >
-                <ComposerIcon
-                  icon={viewOnce ? viewOnceIcon : viewOnceOffIcon}
-                  provider={
-                    viewOnce
-                      ? (viewOnceIconProvider ?? iconProvider)
-                      : (viewOnceOffIconProvider ?? iconProvider)
-                  }
-                  size={18}
-                  color={viewOnce ? colors.white : theme.text.secondary}
-                />
-              </View>
-              <Text
-                variant="bodyMedium"
-                color={viewOnce ? "primary" : "secondary"}
-                style={styles.sheetViewOnceLabel}
-              >
-                View once{viewOnce ? " • on" : ""}
-              </Text>
-            </Pressable>
-          ) : null}
-          <View style={styles.sheetGrid}>
+            height: keyboardHeight
+              ? Math.min(keyboardHeight, 200)
+              : 200,
+            paddingBottom: insets.bottom,
+            backgroundColor: isDark ? colors.surface : colors.white,
+          },
+        ]}
+      >
+        <View style={styles.sheetGrid}>
             {resolvedAttachmentOptions.map((item) => (
               <Pressable
                 key={item.label}
@@ -1145,15 +1208,24 @@ const styles = StyleSheet.create({
   },
 
   // ── View-once toggle on the text composer row ───
-  // Sits between the input and the mic/send slot; styled like the idle
-  // voice button so the row keeps its rhythm, primary-filled when armed.
-  composerViewOnce: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  // Sits between the reply bar and the composer so it never overlaps the
+  // mic / send slot. Only visible once the user starts typing.
+  composerViewOnceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.screenHorizontal,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  composerViewOnceToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: spacing.xs,
+  },
+  composerViewOnceLabel: {
+    fontWeight: "600",
   },
 
   // ── Recording mode ──────────────────────────────
@@ -1314,7 +1386,6 @@ const styles = StyleSheet.create({
   // block.
   sheetInline: {
     borderTopWidth: 0,
-    paddingTop: spacing.sm,
     paddingHorizontal: spacing.md,
   },
   // View-once arming row above the grid — slim, left-aligned, mirrors the

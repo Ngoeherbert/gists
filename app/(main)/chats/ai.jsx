@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import colors from "../../../constants/colors";
 import spacing from "../../../constants/spacing";
 import useChatStore from "../../../stores/chatStore";
@@ -22,6 +23,7 @@ import MessageBubble from "../../../components/chats/MessageBubble";
 import ChatInput from "../../../components/chats/ChatInput";
 
 export default function AiChatScreen() {
+  const router = useRouter();
   const listRef = useRef(null);
 
   const ai = useChatStore((s) => s.ai);
@@ -118,6 +120,10 @@ export default function AiChatScreen() {
     showToast("AI chat history cleared", "info");
   };
 
+  const openChatInfo = () => {
+    router.navigate(`/(main)/chats/info?id=ai`);
+  };
+
   const HeaderTitle = () => (
     <View style={styles.headerTitleContainer}>
       <View style={[styles.aiAvatar, { backgroundColor: colors.primary }]}>
@@ -148,7 +154,7 @@ export default function AiChatScreen() {
           compactTitle
           title={<HeaderTitle />}
           subtitle={null}
-          right={<IconButton name="trash-outline" onPress={handleClear} />}
+          right={<IconButton name="information-outline" onPress={openChatInfo} />}
           border={false}
         />
       }
@@ -162,7 +168,23 @@ export default function AiChatScreen() {
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <MessageBubble message={item} />}
+          renderItem={({ item, index }) => {
+            // Same speaker-change rule as the main chat thread: the last bubble
+            // of a turn leaves extra room so a user message and the AI reply
+            // never read as one block. No date dividers here, so there is
+            // nothing to suppress the gap for.
+            const nextMsg = messages[index + 1];
+            const senderSwitchAfter =
+              Boolean(nextMsg) &&
+              (nextMsg.isMine !== item.isMine ||
+                nextMsg.senderId !== item.senderId);
+            return (
+              <MessageBubble
+                message={item}
+                senderSwitchAfter={senderSwitchAfter}
+              />
+            );
+          }}
           contentContainerStyle={
             messages.length === 0 ? styles.emptyContent : styles.content
           }
@@ -209,9 +231,15 @@ export default function AiChatScreen() {
           micIcon="mic-outline"
           micIconFamily="ionicon"
           messageIdPrefix="ai"
+          attachmentOptions={[
+            { name: "camera-outline", label: "Camera", provider: "ionicons" },
+            { name: "image-outline", label: "Photo", provider: "ionicons" },
+            { name: "document-outline", label: "File", provider: "ionicons" },
+          ]}
           onAttachmentPress={handleAttachmentPress}
           onRecordStart={handleRecordStart}
           onRecordStop={handleRecordStop}
+          showViewOnce={false}
         />
       </KeyboardAvoidingView>
     </Screen>

@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -16,11 +17,12 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import * as Linking from "expo-linking";
+import * as Haptics from "expo-haptics";
 import colors from "../../../constants/colors";
 import layout from "../../../constants/layout";
 import spacing from "../../../constants/spacing";
@@ -33,6 +35,8 @@ import { Avatar, EmptyState, IconButton, Text } from "../../../components/ui";
 import MessageBubble from "../../../components/chats/MessageBubble";
 import ChatInput from "../../../components/chats/ChatInput";
 import VoicePlayer from "../../../components/chats/VoicePlayer";
+import DateDivider from "../../../components/chats/DateDivider";
+import { startsNewDay } from "../../../utils/chatDates";
 
 // View-once reveal helpers (the preview modal over the chat screen).
 function fmtTime(ts) {
@@ -41,6 +45,18 @@ function fmtTime(ts) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// A message can be edited only by its author, only when it isn't a view-once
+// payload (those are immutable by design), and only when it actually carries
+// editable text — either a plain text message or a media caption.
+function canEditMessage(message) {
+  return Boolean(
+    message?.isMine &&
+      !message.viewOnce &&
+      typeof message.text === "string" &&
+      message.text.trim().length > 0,
+  );
 }
 
 // Full-screen video surface for media previews (expo-video, SDK 54). Rendered
@@ -70,12 +86,16 @@ export default function ChatThreadScreen() {
   const conversation = useChatStore((s) => s.conversationsById[id]);
   const thread = useChatStore((s) => s.threads[id]);
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const updateMessage = useChatStore((s) => s.updateMessage);
+  const deleteMessage = useChatStore((s) => s.deleteMessage);
   const setTyping = useChatStore((s) => s.setTyping);
   const setActiveConversation = useChatStore((s) => s.setActiveConversation);
-  const downloadViewOnceMessage = useChatStore((s) => s.downloadViewOnceMessage);
+  const downloadViewOnceMessage = useChatStore(
+    (s) => s.downloadViewOnceMessage,
+  );
   const markViewOnceViewed = useChatStore((s) => s.markViewOnceViewed);
   const showToast = useAppStore((s) => s.showToast);
-  const { isDark } = useAppTheme();
+  const { isDark, theme } = useAppTheme();
   const typing = useChatStore((s) => s.typing[id]);
   const fetchMessages = useChatStore((s) => s.fetchMessages);
 
@@ -84,6 +104,14 @@ export default function ChatThreadScreen() {
   const [reveal, setReveal] = useState(null);
   // Regular media message currently open in the preview modal.
   const [preview, setPreview] = useState(null);
+  // Long-press menu: stores the full message for the popover menu.
+  const [activeMenuMessage, setActiveMenuMessage] = useState(null);
+  // Message currently being edited in the composer (null when not editing).
+  const [editingMessage, setEditingMessage] = useState(null);
+  // Track selected message for visual feedback (WhatsApp-style)
+  const [selectedMessageId, setSelectedMessageId] = useState(null);
+  // Multi-select mode
+  const [selectedMessages, setSelectedMessages] = useState(new Set());
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -101,7 +129,8 @@ export default function ChatThreadScreen() {
   // `setActiveConversation` write and the async `fetchMessages` response, which
   // would otherwise crash MessageBubble on missing message shapes.
   const safeThread = thread && Array.isArray(thread.ids) ? thread : null;
-  const messages = safeThread?.ids?.map((mid) => safeThread.byId[mid]).filter(Boolean) ?? [];
+  const messages =
+    safeThread?.ids?.map((mid) => safeThread.byId[mid]).filter(Boolean) ?? [];
 
   const peer = conversation?.participants?.[0] || {};
   const isGroup = conversation?.type === "group";
@@ -134,11 +163,163 @@ export default function ChatThreadScreen() {
         : `${typingUsers.slice(0, 2).join(", ")} are typing...`
       : null;
 
-  const handleLongPress = useCallback((message) => {
-    if (!message.isMine) {
-      setReplyTo(message);
-    }
+  const handleLongPress = useCallback(
+    (message) => {
+      // Haptic feedback (WhatsApp-style medium impact)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Set visual selection state
+      setSelectedMessageId(message.id);
+
+      // If already in multi-select mode, toggle selection
+      if (selectedMessages.size > 0) {
+        const newSelected = new Set(selectedMessages);
+        if (newSelected.has(message.id)) {
+          newSelected.delete(message.id);
+        } else {
+          newSelected.add(message.id);
+        }
+        setSelectedMessages(newSelected);
+        if (newSelected.size === 0) {
+          setActiveMenuMessage(null);
+        }
+        return;
+      }
+
+      // First long press - open menu
+      setActiveMenuMessage(message);
+      setSelectedMessages(new Set([message.id]));
+    },
+    [selectedMessages],
+  );
+
+  const handleMessagePress = useCallback(
+    (message) => {
+      // In multi-select mode, toggle selection on tap
+      if (selectedMessages.size > 0) {
+        Haptics.selectionAsync();
+        const newSelected = new Set(selectedMessages);
+        if (newSelected.has(message.id)) {
+          newSelected.delete(message.id);
+        } else {
+          newSelected.add(message.id);
+        }
+        setSelectedMessages(newSelected);
+        if (newSelected.size === 0) {
+          setActiveMenuMessage(null);
+        }
+      }
+      // Clear visual selection after a moment
+      setTimeout(() => setSelectedMessageId(null), 150);
+    },
+    [selectedMessages],
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedMessageId(null);
+    setSelectedMessages(new Set());
+    setActiveMenuMessage(null);
   }, []);
+
+  const handleReply = useCallback((message) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Reply and edit share the bar above the composer — replying exits edit mode.
+    setEditingMessage(null);
+    setReplyTo(message);
+    clearSelection();
+  }, [clearSelection]);
+
+  // ── Edit / delete ─────────────────────────────────
+  // Edit seeds the composer with the message text (ChatInput prefills the draft
+  // and shows the "Editing message" bar); Delete removes it from the local
+  // thread after a confirmation.
+  const startEditing = useCallback(
+    (message) => {
+      if (!canEditMessage(message)) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setEditingMessage(message);
+      setReplyTo(null);
+      clearSelection();
+    },
+    [clearSelection],
+  );
+
+  const cancelEditing = useCallback(() => setEditingMessage(null), []);
+
+  const submitEdit = useCallback(
+    ({ messageId, text }) => {
+      const trimmed = text?.trim();
+      if (!messageId || !trimmed) return;
+      // A re-submitted, unchanged draft must not flag the bubble as "edited".
+      if (trimmed === editingMessage?.text?.trim()) {
+        setEditingMessage(null);
+        return;
+      }
+      updateMessage({
+        conversationId: id,
+        messageId,
+        patch: { text: trimmed, edited: true, editedAt: Date.now() },
+      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setEditingMessage(null);
+      showToast("Message edited", "success");
+    },
+    [id, editingMessage, updateMessage, showToast],
+  );
+
+  const removeMessages = useCallback(
+    (messageIds) => {
+      const ids = (Array.isArray(messageIds) ? messageIds : [messageIds]).filter(
+        Boolean,
+      );
+      ids.forEach((messageId) =>
+        deleteMessage({ conversationId: id, messageId }),
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      clearSelection();
+      showToast(
+        ids.length > 1 ? `${ids.length} messages deleted` : "Message deleted",
+        "success",
+      );
+    },
+    [id, deleteMessage, clearSelection, showToast],
+  );
+
+  const confirmDelete = useCallback(
+    (message) => {
+      if (!message) return;
+      Alert.alert(
+        "Delete message?",
+        "This message will be removed from this conversation.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => removeMessages(message.id),
+          },
+        ],
+      );
+    },
+    [removeMessages],
+  );
+
+  const confirmDeleteSelected = useCallback(() => {
+    const count = selectedMessages.size;
+    if (!count) return;
+    Alert.alert(
+      `Delete ${count} messages?`,
+      "These messages will be removed from this conversation.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => removeMessages([...selectedMessages]),
+        },
+      ],
+    );
+  }, [selectedMessages, removeMessages]);
 
   const openChatInfo = () => {
     router.navigate(`/(main)/chats/info?id=${id}`);
@@ -269,7 +450,12 @@ export default function ChatThreadScreen() {
             )}
           </View>
           <View style={styles.titleColumn}>
-            <Text variant="subtitle" color="default" numberOfLines={1} onPress={openChatInfo}>
+            <Text
+              variant="subtitle"
+              color="default"
+              numberOfLines={1}
+              onPress={openChatInfo}
+            >
               {title}
             </Text>
             {subtitle && (
@@ -353,59 +539,86 @@ export default function ChatThreadScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => {
-            const prevMsg = messages[index - 1];
-            const sameSenderAsPrev =
-              prevMsg &&
-              prevMsg.isMine === item.isMine &&
-              prevMsg.senderId === item.senderId;
-            const showAvatar = item.isMine
-              ? false
-              : !prevMsg ||
-                prevMsg.isMine ||
-                prevMsg.senderId !== item.senderId;
-            const showName = isGroup && !item.isMine && showAvatar;
-            return (
-              <MessageBubble
-                message={item}
-                onLongPress={handleLongPress}
-                showAvatar={showAvatar}
-                showName={showName}
-                isGroup={isGroup}
-                showTail={!sameSenderAsPrev}
-                isGrouped={Boolean(sameSenderAsPrev)}
-                onViewOnceDownload={handleViewOnceDownload}
-                onViewOnceOpen={handleViewOnceOpen}
-                onMediaPress={handleMediaPress}
+              const prevMsg = messages[index - 1];
+              const nextMsg = messages[index + 1];
+              // A new calendar day breaks the "same sender" run: the day's
+              // first bubble gets its avatar, name and tail back even when the
+              // previous message came from the same person.
+              const opensDay = startsNewDay(messages, index);
+              const sameSenderAsPrev =
+                !opensDay &&
+                prevMsg &&
+                prevMsg.isMine === item.isMine &&
+                prevMsg.senderId === item.senderId;
+              // The speaker changes after this bubble -> widen the gap below it.
+              // Skipped when the next message opens a new day, because the
+              // DateDivider above that message already provides the separation
+              // (adding both would leave an oversized hole).
+              const senderSwitchAfter =
+                Boolean(nextMsg) &&
+                !startsNewDay(messages, index + 1) &&
+                (nextMsg.isMine !== item.isMine ||
+                  nextMsg.senderId !== item.senderId);
+              const showAvatar = item.isMine
+                ? false
+                : !prevMsg ||
+                  opensDay ||
+                  prevMsg.isMine ||
+                  prevMsg.senderId !== item.senderId;
+              const showName = isGroup && !item.isMine && showAvatar;
+              const isSelected = selectedMessages.has(item.id);
+              return (
+                <View>
+                  {opensDay ? <DateDivider date={item.createdAt} /> : null}
+                  <MessageBubble
+                    message={item}
+                    onLongPress={handleLongPress}
+                    onPress={handleMessagePress}
+                    onReply={handleReply}
+                    selected={isSelected}
+                    showAvatar={showAvatar}
+                    showName={showName}
+                    isGroup={isGroup}
+                    showTail={!sameSenderAsPrev}
+                    isGrouped={Boolean(sameSenderAsPrev)}
+                    senderSwitchAfter={senderSwitchAfter}
+                    onViewOnceDownload={handleViewOnceDownload}
+                    onViewOnceOpen={handleViewOnceOpen}
+                    onMediaPress={handleMediaPress}
+                  />
+                </View>
+              );
+            }}
+            contentContainerStyle={
+              messages.length === 0 ? styles.emptyContent : styles.content
+            }
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() =>
+              listRef.current?.scrollToEnd?.({ animated: false })
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="chatbubble-outline"
+                title="No messages yet"
+                description={`Say hi to ${title || "them"} — this conversation is just getting started.`}
               />
-            );
-          }}
-          contentContainerStyle={
-            messages.length === 0 ? styles.emptyContent : styles.content
-          }
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() =>
-            listRef.current?.scrollToEnd?.({ animated: false })
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="chatbubble-outline"
-              title="No messages yet"
-              description={`Say hi to ${title || "them"} — this conversation is just getting started.`}
-            />
-          }
-        />
+            }
+          />
 
-        <ChatInput
-          key={id}
-          conversationId={id}
-          user={user}
-          onSend={sendMessage}
-          onTyping={handleTyping}
-          replyTo={replyTo}
-          onReplyChange={setReplyTo}
-          listRef={listRef}
-          onToast={showToast}
-        />
+          <ChatInput
+            key={id}
+            conversationId={id}
+            user={user}
+            onSend={sendMessage}
+            onTyping={handleTyping}
+            replyTo={replyTo}
+            onReplyChange={setReplyTo}
+            editingMessage={editingMessage}
+            onEditSubmit={submitEdit}
+            onCancelEdit={cancelEditing}
+            listRef={listRef}
+            onToast={showToast}
+          />
       </KeyboardAvoidingView>
 
       {/* ── View-once preview modal ──────────────────────
@@ -425,7 +638,10 @@ export default function ChatThreadScreen() {
         <View
           style={[
             styles.revealBackdrop,
-            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.sm },
+            {
+              paddingTop: insets.top + spacing.sm,
+              paddingBottom: insets.bottom + spacing.sm,
+            },
           ]}
         >
           {reveal ? (
@@ -435,12 +651,19 @@ export default function ChatThreadScreen() {
                 <Pressable
                   onPress={closeReveal}
                   hitSlop={12}
-                  style={({ pressed }) => [styles.revealXBtn, pressed && { opacity: 0.6 }]}
+                  style={({ pressed }) => [
+                    styles.revealXBtn,
+                    pressed && { opacity: 0.6 },
+                  ]}
                   accessibilityLabel="Close view once"
                 >
                   <Ionicons name="close" size={26} color={colors.white} />
                 </Pressable>
-                <Ionicons name="eye-outline" size={24} color={colors.white} />
+                <MaterialCommunityIcons
+                  name="progress-check"
+                  size={24}
+                  color={colors.white}
+                />
               </View>
 
               <View style={styles.revealBody}>
@@ -457,7 +680,11 @@ export default function ChatThreadScreen() {
                     <VideoPreviewLayer uri={reveal.mediaUrl} />
                   ) : (
                     <View style={styles.revealMediaFull}>
-                      <Ionicons name="play-circle" size={96} color="rgba(255,255,255,0.9)" />
+                      <Ionicons
+                        name="play-circle"
+                        size={96}
+                        color="rgba(255,255,255,0.9)"
+                      />
                     </View>
                   )
                 ) : (
@@ -466,8 +693,18 @@ export default function ChatThreadScreen() {
                     contentContainerStyle={styles.revealBubbleScroll}
                     showsVerticalScrollIndicator={false}
                   >
-                    <View style={[styles.revealBubble, { backgroundColor: revealBubbleColor }]}>
-                      <View style={[styles.revealTail, { borderRightColor: revealBubbleColor }]} />
+                    <View
+                      style={[
+                        styles.revealBubble,
+                        { backgroundColor: revealBubbleColor },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.revealTail,
+                          { borderRightColor: revealBubbleColor },
+                        ]}
+                      />
                       {reveal.mediaType === "voice" ? (
                         <VoicePlayer
                           uri={reveal.mediaUrl || null}
@@ -480,7 +717,10 @@ export default function ChatThreadScreen() {
                       {reveal.text ? (
                         <Text
                           variant="body"
-                          style={[styles.revealBubbleText, { color: revealContentColor }]}
+                          style={[
+                            styles.revealBubbleText,
+                            { color: revealContentColor },
+                          ]}
                         >
                           {reveal.text}
                         </Text>
@@ -488,7 +728,10 @@ export default function ChatThreadScreen() {
 
                       <Text
                         variant="caption"
-                        style={[styles.revealBubbleTime, { color: revealContentColor }]}
+                        style={[
+                          styles.revealBubbleTime,
+                          { color: revealContentColor },
+                        ]}
                       >
                         {fmtTime(reveal.createdAt)}
                       </Text>
@@ -515,7 +758,10 @@ export default function ChatThreadScreen() {
         <View
           style={[
             styles.revealBackdrop,
-            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.sm },
+            {
+              paddingTop: insets.top + spacing.sm,
+              paddingBottom: insets.bottom + spacing.sm,
+            },
           ]}
         >
           {preview ? (
@@ -524,7 +770,10 @@ export default function ChatThreadScreen() {
                 <Pressable
                   onPress={closePreview}
                   hitSlop={12}
-                  style={({ pressed }) => [styles.revealXBtn, pressed && { opacity: 0.6 }]}
+                  style={({ pressed }) => [
+                    styles.revealXBtn,
+                    pressed && { opacity: 0.6 },
+                  ]}
                   accessibilityLabel="Close preview"
                 >
                   <Ionicons name="close" size={26} color={colors.white} />
@@ -548,12 +797,171 @@ export default function ChatThreadScreen() {
                     resizeMode="contain"
                   />
                 ) : (
-                  <Ionicons name="image-outline" size={64} color="rgba(255,255,255,0.5)" />
+                  <Ionicons
+                    name="image-outline"
+                    size={64}
+                    color="rgba(255,255,255,0.5)"
+                  />
                 )}
               </View>
             </>
           ) : null}
         </View>
+      </Modal>
+
+      {/* ── Message long-press action sheet (bottom sheet) ─────
+          Slides up from bottom like WhatsApp on iOS. Contains message actions:
+          Copy, Forward, Reply, Edit (own text / captions only), React and
+          Delete. */}
+      <Modal
+        visible={Boolean(activeMenuMessage)}
+        transparent
+        animationType="fade"
+        onRequestClose={clearSelection}
+      >
+        <Pressable style={styles.actionSheetBackdrop} onPress={clearSelection}>
+          <View style={styles.actionSheetContainer}>
+            <View style={styles.actionSheetHandle} />
+            <View
+              style={[
+                styles.actionSheetContent,
+                {
+                  backgroundColor: isDark ? colors.surface : colors.white,
+                  paddingBottom: spacing.lg + (insets?.bottom || 0),
+                },
+              ]}
+            >
+              {selectedMessages.size > 1 && (
+                <Text
+                  variant="bodyMedium"
+                  color={isDark ? "secondary_text" : "tertiary_text"}
+                  style={styles.actionSheetTitle}
+                >
+                  {selectedMessages.size} messages selected
+                </Text>
+              )}
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  clearSelection(); /* copy */
+                }}
+              >
+                <Ionicons
+                  name="copy-outline"
+                  size={24}
+                  color={theme.text.primary}
+                  style={styles.actionSheetIcon}
+                />
+                <Text variant="bodyLarge" color="default">
+                  Copy
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  clearSelection(); /* forward */
+                }}
+              >
+                <Ionicons
+                  name="send-outline"
+                  size={24}
+                  color={theme.text.primary}
+                  style={styles.actionSheetIcon}
+                />
+                <Text variant="bodyLarge" color="default">
+                  Forward
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  if (activeMenuMessage) setReplyTo(activeMenuMessage);
+                  clearSelection(); /* reply */
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="reply-outline"
+                  size={24}
+                  color={theme.text.primary}
+                  style={styles.actionSheetIcon}
+                />
+                <Text variant="bodyLarge" color="default">
+                  Reply
+                </Text>
+              </Pressable>
+              {canEditMessage(activeMenuMessage) && selectedMessages.size === 1 && (
+                <Pressable
+                  style={styles.actionSheetItem}
+                  onPress={() => startEditing(activeMenuMessage)}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={24}
+                    color={theme.text.primary}
+                    style={styles.actionSheetIcon}
+                  />
+                  <Text variant="bodyLarge" color="default">
+                    Edit
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  clearSelection(); /* react */
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="emoticon-happy-outline"
+                  size={24}
+                  color={theme.text.primary}
+                  style={styles.actionSheetIcon}
+                />
+                <Text variant="bodyLarge" color="default">
+                  React
+                </Text>
+              </Pressable>
+              {activeMenuMessage && selectedMessages.size === 1 && (
+                <Pressable
+                  style={[
+                    styles.actionSheetItem,
+                    styles.actionSheetItemDestructive,
+                  ]}
+                  onPress={() => confirmDelete(activeMenuMessage)}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={24}
+                    color={theme.status.error}
+                    style={styles.actionSheetIcon}
+                  />
+                  <Text variant="bodyLarge" color={theme.status.error}>
+                    Delete
+                  </Text>
+                </Pressable>
+              )}
+              {selectedMessages.size > 1 && (
+                <Pressable
+                  style={[
+                    styles.actionSheetItem,
+                    styles.actionSheetItemDestructive,
+                  ]}
+                  onPress={confirmDeleteSelected}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={24}
+                    color={theme.status.error}
+                    style={styles.actionSheetIcon}
+                  />
+                  <Text variant="bodyLarge" color={theme.status.error}>
+                    Delete {selectedMessages.size} messages
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </Pressable>
       </Modal>
     </Screen>
   );
@@ -561,6 +969,13 @@ export default function ChatThreadScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  // Wraps the whole thread (list + composer) so a tap anywhere outside an
+  // open long-press menu dismisses it. Child Pressables (bubbles, composer
+  // buttons) still receive their own press events — dismissing the menu on a
+  // tap that also sends a message is the expected behaviour.
+  screenTapArea: {
     flex: 1,
   },
   headerActions: {
@@ -674,5 +1089,51 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     fontSize: 10,
     opacity: 0.6,
+  },
+  // ── Message long-press action sheet (bottom sheet) ──
+  actionSheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-end",
+  },
+  actionSheetContainer: {
+    backgroundColor: "transparent",
+  },
+  actionSheetHandle: {
+    width: 36,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.border,
+    alignSelf: "center",
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  actionSheetContent: {
+    paddingHorizontal: spacing.md,
+    borderTopLeftRadius: layout.borderRadius.xl,
+    borderTopRightRadius: layout.borderRadius.xl,
+  },
+  actionSheetTitle: {
+    paddingVertical: spacing.sm,
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  actionSheetItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: layout.borderRadius.md,
+  },
+  actionSheetItemDestructive: {
+    marginTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  actionSheetIcon: {
+    width: 28,
+    textAlign: "center",
   },
 });
