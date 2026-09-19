@@ -156,13 +156,13 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  topRow: {
+    topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: spacing.xxs,
   },
-    title: {
+  title: {
     flex: 1,
     marginRight: spacing.sm,
   },

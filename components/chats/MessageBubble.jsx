@@ -214,8 +214,8 @@ function MessageBubble({
       ) : (
         <View style={styles.avatarSpacer} />
       )}
-      <View style={styles.bubbleWrap}>
-                {!mine && showName && message.senderName && (
+            <View style={styles.bubbleWrap}>
+        {!mine && showName && message.senderName && (
           <View style={styles.senderNameRow}>
             <Text
               variant="caption"
@@ -482,22 +482,18 @@ const styles = StyleSheet.create({
     width: 28,
     marginRight: spacing.xs,
   },
-  bubbleWrap: {
-        maxWidth: "78%",
+    bubbleWrap: {
+    maxWidth: "78%",
     position: "relative",
-  },
-  senderName: {
-    marginBottom: spacing.xxs,
-    marginLeft: spacing.xs,
-  },
-    marginBottom: spacing.xxs,
-    marginLeft: spacing.xs,
   },
   senderNameRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: spacing.xxs,
     marginLeft: spacing.xs,
+  },
+  senderName: {
+    marginRight: spacing.xs,
   },
   bubble: {
     // iMessage-style pill bubble: fully, evenly rounded on all four
