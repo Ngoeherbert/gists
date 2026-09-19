@@ -12,6 +12,8 @@ import useAppTheme from "../../hooks/useAppTheme";
 import Avatar from "../ui/Avatar";
 import Badge from "../ui/Badge";
 import Text from "../ui/Text";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
+import useProfileStore from "../../stores/profileStore";
 
 function timeLabel(ts) {
   if (!ts) return "";
@@ -76,9 +78,18 @@ function ConversationRow({ conversation, muted = false, onPress }) {
 
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <Text variant="bodyMedium" numberOfLines={1} style={styles.title}>
-            {title}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text variant="bodyMedium" numberOfLines={1} style={styles.title}>
+              {title}
+            </Text>
+            {!isGroup && peer.id && useProfileStore.getState().verifiedUsers[peer.id] && (
+              <VerifiedBadge
+                size={18}
+                color={useProfileStore.getState().getVerifiedBadge(peer.id).color}
+                iconName="verified"
+              />
+            )}
+          </View>
           <Text variant="caption" color="tertiary">
             {timeLabel(conversation.updatedAt)}
           </Text>
@@ -151,9 +162,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.xxs,
   },
-  title: {
+    title: {
     flex: 1,
     marginRight: spacing.sm,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   bottomRow: {
     flexDirection: "row",

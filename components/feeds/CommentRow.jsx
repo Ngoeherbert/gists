@@ -9,9 +9,11 @@ import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
 import useFeedStore from "../../stores/feedStore";
+import useProfileStore from "../../stores/profileStore";
 import { formatRelativeTime } from "../../utils/formatters";
 import Avatar from "../ui/Avatar";
 import Text from "../ui/Text";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
 
 function CommentRow({ postId, comment }) {
   const { theme } = useAppTheme();
@@ -30,9 +32,18 @@ function CommentRow({ postId, comment }) {
 
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <Text variant="bodySmall" numberOfLines={1} style={styles.name}>
-            {author.username || author.name || "user"}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text variant="bodySmall" numberOfLines={1} style={styles.name}>
+              {author.username || author.name || "user"}
+            </Text>
+            {author.id && useProfileStore.getState().verifiedUsers[author.id] && (
+              <VerifiedBadge
+                size={16}
+                color={useProfileStore.getState().getVerifiedBadge(author.id).color}
+                iconName="verified"
+              />
+            )}
+          </View>
           <Text variant="caption" color="tertiary">
             {comment.createdAt ? `· ${formatRelativeTime(comment.createdAt)}` : ""}
           </Text>
@@ -86,6 +97,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: spacing.xxs,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   name: {
     marginRight: spacing.xs,

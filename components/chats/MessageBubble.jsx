@@ -15,6 +15,8 @@ import useAppTheme from "../../hooks/useAppTheme";
 import Text from "../ui/Text";
 import Avatar from "../ui/Avatar";
 import VoicePlayer from "./VoicePlayer";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
+import useProfileStore from "../../stores/profileStore";
 
 function timeLabel(ts) {
   if (!ts) return "";
@@ -213,14 +215,23 @@ function MessageBubble({
         <View style={styles.avatarSpacer} />
       )}
       <View style={styles.bubbleWrap}>
-        {!mine && showName && message.senderName && (
-          <Text
-            variant="caption"
-            color={isDark ? "secondary_text" : "tertiary_text"}
-            style={styles.senderName}
-          >
-            {message.senderName}
-          </Text>
+                {!mine && showName && message.senderName && (
+          <View style={styles.senderNameRow}>
+            <Text
+              variant="caption"
+              color={isDark ? "secondary_text" : "tertiary_text"}
+              style={styles.senderName}
+            >
+              {message.senderName}
+            </Text>
+            {message.senderId && useProfileStore.getState().verifiedUsers[message.senderId] && (
+              <VerifiedBadge
+                size={16}
+                color={useProfileStore.getState().getVerifiedBadge(message.senderId).color}
+                iconName="verified"
+              />
+            )}
+          </View>
         )}
 
         <PanGestureHandler
@@ -472,10 +483,19 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   bubbleWrap: {
-    maxWidth: "78%",
+        maxWidth: "78%",
     position: "relative",
   },
   senderName: {
+    marginBottom: spacing.xxs,
+    marginLeft: spacing.xs,
+  },
+    marginBottom: spacing.xxs,
+    marginLeft: spacing.xs,
+  },
+  senderNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.xxs,
     marginLeft: spacing.xs,
   },

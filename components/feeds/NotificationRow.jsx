@@ -10,6 +10,8 @@ import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
 import Avatar from "../ui/Avatar";
 import Text from "../ui/Text";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
+import useProfileStore from "../../stores/profileStore";
 
 const TYPE_META = {
   like: { icon: "heart", color: colors.like, verb: "liked your post" },
@@ -63,13 +65,20 @@ function NotificationRow({ notification, onPress }) {
       </View>
 
       <View style={styles.body}>
-        <Text variant="bodySmall" numberOfLines={2}>
+        <View style={styles.actorNameRow}>
           <Text variant="bodyBold">
             {actor.username || actor.name || "Someone"}
-          </Text>{" "}
-          <Text variant="bodySmall" color="secondary_text">
-            {meta.verb}
           </Text>
+          {actor.id && useProfileStore.getState().verifiedUsers[actor.id] && (
+            <VerifiedBadge
+              size={18}
+              color={useProfileStore.getState().getVerifiedBadge(actor.id).color}
+              iconName="verified"
+            />
+          )}
+        </View>
+        <Text variant="bodySmall" color="secondary_text">
+          {meta.verb}
         </Text>
         {notification.preview ? (
           <Text
@@ -116,6 +125,11 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+  },
+  actorNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.xxs,
   },
   preview: {
     marginTop: spacing.xxs,
