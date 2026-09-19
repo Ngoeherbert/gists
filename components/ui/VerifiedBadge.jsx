@@ -7,8 +7,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 
 export function VerifiedBadge({ size = 24, color = "#1877F2", iconName = "verified" }) {
   const badgeColor = color || "#1877F2"; // Facebook blue
-  // White checkmark on blue background
-  const iconColor = "#000000";
+    // White checkmark on blue background
+  const iconColor = "#FFFFFF";
   
   return (
     <View
