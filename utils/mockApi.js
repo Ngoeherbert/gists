@@ -76,9 +76,9 @@ export const PEOPLE = {
 
 // Pre-populated verified users for demo purposes
 export const VERIFIED_USERS = {
-  [PEOPLE.ada.id]: { tier: "blue", color: "#34B7F1" },
-  [PEOPLE.grace.id]: { tier: "gold", color: "#FFD700" },
-  [PEOPLE.linus.id]: { tier: "custom", color: "#722ED1" },
+  [PEOPLE.ada.id]: { tier: "blue", color: "#1877F2" }, // Facebook blue
+  [PEOPLE.grace.id]: { tier: "blue", color: "#1877F2" },
+  [PEOPLE.linus.id]: { tier: "blue", color: "#1877F2" },
 };
 
 const LOREM = [

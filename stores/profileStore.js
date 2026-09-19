@@ -305,9 +305,9 @@ export default useProfileStore;
 // Exported helpers for use in components
 export const verifiedBadge = {
   tiers: {
-    blue: { tier: "blue", color: "#34B7F1" },
-    gold: { tier: "gold", color: "#FFD700" },
-    custom: { tier: "custom" },
+    blue: { tier: "blue", color: "#1877F2" }, // Facebook blue
+    gold: { tier: "blue", color: "#1877F2" }, // Now using Facebook blue for consistency
+    custom: { tier: "blue", color: "#1877F2" },
   },
-  defaultColor: "#34B7F1",
+  defaultColor: "#1877F2",
 };

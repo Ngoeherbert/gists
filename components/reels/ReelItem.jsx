@@ -690,9 +690,9 @@ function ReelItem({ reel, isActive, height, bottomInset = 0, shouldPreload = fal
                 />
                 {authorId && useProfileStore.getState().verifiedUsers[authorId] && (
                   <VerifiedBadge
-                    size={20}
+                    size={18}
                     color={useProfileStore.getState().getVerifiedBadge(authorId).color}
-                    iconName="verified"
+                    iconName="check"
                   />
                 )}
                 <Text
