@@ -13,8 +13,10 @@ import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
 import useFeedStore from "../../stores/feedStore";
 import useAppStore from "../../stores/appStore";
+import useProfileStore from "../../stores/profileStore";
 import Avatar from "../ui/Avatar";
 import Text from "../ui/Text";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
 
 function formatCount(n = 0) {
   if (n < 1000) return String(n);
@@ -115,9 +117,18 @@ function PostCard({ post }) {
             size="md"
           />
           <View style={styles.authorMeta}>
-            <Text variant="bodyMedium" numberOfLines={1}>
-              {author.name || author.username || "Someone"}
-            </Text>
+            <View style={styles.authorNameRow}>
+              <Text variant="bodyMedium" numberOfLines={1}>
+                {author.name || author.username || "Someone"}
+              </Text>
+              {author.id && useProfileStore.getState().verifiedUsers[author.id] && (
+                <VerifiedBadge
+                  size={20}
+                  color={useProfileStore.getState().getVerifiedBadge(author.id).color}
+                  iconName="verified"
+                />
+              )}
+            </View>
             <Text variant="caption" color="tertiary">
               @{author.username || "user"} · {timeAgo(post.createdAt)}
             </Text>

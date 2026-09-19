@@ -11,6 +11,8 @@ import useAppTheme from "../../hooks/useAppTheme";
 import Avatar from "../ui/Avatar";
 import Button from "../ui/Button";
 import Text from "../ui/Text";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
+import useProfileStore from "../../stores/profileStore";
 
 function formatCount(n = 0) {
   if (n < 1000) return String(n);
@@ -72,6 +74,13 @@ export default function ProfileHeader({
           @{profile.username}
         </Text>
       ) : null}
+      {profile.id && useProfileStore.getState().verifiedUsers[profile.id] && (
+        <VerifiedBadge
+          size={24}
+          color={useProfileStore.getState().getVerifiedBadge(profile.id).color}
+          iconName="verified"
+        />
+      )}
 
       {profile.bio ? (
         <Text variant="body" style={styles.bio}>

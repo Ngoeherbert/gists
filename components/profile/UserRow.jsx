@@ -10,6 +10,7 @@ import useProfileStore from "../../stores/profileStore";
 import Avatar from "../ui/Avatar";
 import Button from "../ui/Button";
 import Text from "../ui/Text";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
 
 function UserRow({ user }) {
   const router = useRouter();
@@ -32,9 +33,18 @@ function UserRow({ user }) {
       />
 
       <View style={styles.body}>
-        <Text variant="bodyMedium" numberOfLines={1}>
-          {user.name || user.username}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text variant="bodyMedium" numberOfLines={1}>
+            {user.name || user.username}
+          </Text>
+          {user.id && useProfileStore.getState().verifiedUsers[user.id] && (
+            <VerifiedBadge
+              size={20}
+              color={useProfileStore.getState().getVerifiedBadge(user.id).color}
+              iconName="verified"
+            />
+          )}
+        </View>
         <Text variant="caption" color="tertiary" numberOfLines={1}>
           @{user.username}
         </Text>

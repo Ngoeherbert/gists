@@ -12,6 +12,8 @@ import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
 import { Avatar, Button, IconButton, Text } from "../ui";
+import { VerifiedBadge } from "../ui/VerifiedBadge";
+import useProfileStore from "../../stores/profileStore";
 
 export default function PostComposer({
   initialText = "",
@@ -56,13 +58,18 @@ export default function PostComposer({
     <View style={styles.container}>
       <View style={styles.authorRow}>
         <Avatar uri={avatarUri} name={displayName} size="md" />
-        <Text
-          variant="bodySmall"
-          color="secondary_text"
-          style={styles.authorName}
-        >
-          {displayName || "You"}
-        </Text>
+        <View style={styles.authorContent}>
+          <View style={styles.authorNameRow}>
+            <Text
+              variant="bodySmall"
+              color="secondary_text"
+              style={styles.authorName}
+            >
+              {displayName || "You"}
+            </Text>
+            {/* Could show verified badge for current user if needed */}
+          </View>
+        </View>
         <View style={styles.spacer} />
         {headerRight}
       </View>

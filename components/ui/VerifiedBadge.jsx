@@ -4,14 +4,11 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import useAppTheme from "../../hooks/useAppTheme";
-import layout from "../../constants/layout";
 
-export function VerifiedBadge({ size = 20, color = "#1877F2", iconName = "check" }) {
-  const { isDark } = useAppTheme();
+export function VerifiedBadge({ size = 24, color = "#1877F2", iconName = "verified" }) {
   const badgeColor = color || "#1877F2"; // Facebook blue
-  // Facebook uses white checkmark on blue background regardless of theme
-  const iconColor = "#FFFFFF";
+  // White checkmark on blue background
+  const iconColor = "#000000";
   
   return (
     <View
@@ -27,7 +24,7 @@ export function VerifiedBadge({ size = 20, color = "#1877F2", iconName = "check"
     >
       <MaterialIcons
         name={iconName}
-        size={size * 0.55} // Proportional icon size
+        size={size * 0.6}
         color={iconColor}
       />
     </View>
