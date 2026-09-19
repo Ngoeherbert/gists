@@ -25,7 +25,8 @@ import useAppTheme from "../../../hooks/useAppTheme";
 import useAppStore from "../../../stores/appStore";
 import useChatStore from "../../../stores/chatStore";
 import { Header, Screen } from "../../../components/common";
-import { Avatar, Card, Divider, IconButton, Text } from "../../../components/ui";
+import { Avatar, Card, Divider, IconButton, Text, VerifiedBadge } from "../../../components/ui";
+import useProfileStore from "../../../stores/profileStore";
 
 export default function ChatInfoScreen() {
   const { id } = useLocalSearchParams();
@@ -44,6 +45,12 @@ export default function ChatInfoScreen() {
   const peer = participants[0] ?? {};
   const name = conversation?.name || peer.name || "Conversation";
   const peerId = peer.id;
+  const isVerified = useProfileStore((s) =>
+    Boolean(!isGroup && peerId && s.verifiedUsers[peerId]),
+  );
+  const verifiedBadge = isVerified
+    ? useProfileStore.getState().getVerifiedBadge(peerId)
+    : null;
 
   const confirmBlock = () => {
     Alert.alert(
@@ -707,9 +714,18 @@ export default function ChatInfoScreen() {
     <>
       <Pressable onPress={onPressAvatar} style={styles.hero}>
         <Avatar uri={heroAvatar} name={name} size="huge" />
-        <Text variant="title" style={styles.heroName}>
-          {name}
-        </Text>
+        <View style={styles.heroNameRow}>
+          <Text variant="title" style={styles.heroName}>
+            {name}
+          </Text>
+          {verifiedBadge && (
+            <VerifiedBadge
+              size={22}
+              color={verifiedBadge.iconColor || verifiedBadge.color}
+              iconName="verified"
+            />
+          )}
+        </View>
         {peer.isOnline ? (
           <Text variant="bodySmall" color="success">
             Online
@@ -1082,7 +1098,12 @@ export default function ChatInfoScreen() {
 const styles = StyleSheet.create({
   body: { padding: spacing.lg },
   hero: { alignItems: "center", marginBottom: spacing.xl },
-  heroName: { marginTop: spacing.md },
+  heroNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.md,
+  },
+  heroName: { marginLeft: 0 },
   heroAbout: { marginTop: spacing.xs, maxWidth: "80%" },
   aiHero: {
     alignItems: "center",

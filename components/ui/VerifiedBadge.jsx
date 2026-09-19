@@ -1,40 +1,22 @@
-// VerifiedBadge component: Facebook-style verification badge.
-// Blue circular badge with white checkmark icon, used on reels,
-// posts and profiles. Clean, minimal design consistent with Facebook's verification style.
+// VerifiedBadge component: just the verified icon, no background.
+// Uses MaterialIcons verified glyph with customizable color and size.
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 
-export function VerifiedBadge({ size = 24, color = "#1877F2", iconName = "verified" }) {
-  const badgeColor = color; // Facebook blue
-  // White checkmark on blue background
-  const iconColor = "#FFFFFF";
-  
+export function VerifiedBadge({ size = 24, color = "#083F64", iconName = "verified" }) {
   return (
-    <View
-      style={[
-        styles.verifiedBadge,
-        {
-          backgroundColor: badgeColor,
-          borderRadius: size / 2, // Fully circular
-          width: size,
-          height: size,
-        },
-      ]}
-    >
-      <MaterialIcons
-        name={iconName}
-        size={size * 0.6}
-        color={iconColor}
-      />
-    </View>
+    <MaterialIcons
+      name={iconName}
+      size={size}
+      color={color}
+      style={styles.badge}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  verifiedBadge: {
-    alignItems: "center",
-    justifyContent: "center",
-    // No border - Facebook's badge is a solid blue circle
+  badge: {
+    marginLeft: 4,
   },
 });

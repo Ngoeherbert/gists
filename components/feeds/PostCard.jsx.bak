@@ -4,10 +4,11 @@
 // from feedStore's optimistic actions.
 
 import React, { memo, useCallback, useEffect, useState } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useRouter } from "expo-router";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-import { VideoView, useVideoPlayer } from "expo-video";
 import colors from "../../constants/colors";
 import layout from "../../constants/layout";
 import spacing from "../../constants/spacing";
@@ -67,14 +68,124 @@ const TEXT_POST_COLORS = [
 ];
 
 function textPostColor(postId) {
-  const hash = Array.from(postId ?? "").reduce(
+  const hash = Array.from(postId || "").reduce(
     (n, c) => n + c.charCodeAt(0),
     0,
   );
   return TEXT_POST_COLORS[Math.abs(hash) % TEXT_POST_COLORS.length];
 }
 
-function PostCard({ post, showAuthor = true, showOptions = true, isVisible = true }) {
+const VIDEO_URL_RE = /\.(mp4|mov|m4v|webm|avi|mkv)(\?.*)?$/i;
+
+function resolveMediaType(post) {
+  if (post.mediaType) return post.mediaType;
+  return post.mediaUrl && VIDEO_URL_RE.test(post.mediaUrl) ? "video" : "image";
+}
+
+function PostMedia({ post, theme }) {
+  const mediaType = resolveMediaType(post);
+
+  if (mediaType === "video") {
+    return <PostVideo uri={post.mediaUrl} theme={theme} duration={post.duration} />;
+  }
+
+  return <PostImage uri={post.mediaUrl} theme={theme} />;
+}
+
+function PostImage({ uri, theme }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed || !uri) {
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.mediaFallback]}>
+        <Ionicons
+          name="image-outline"
+          size={layout.iconSize.xxl}
+          color={theme.text.muted}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri }}
+      style={StyleSheet.absoluteFill}
+      contentFit="cover"
+      transition={200}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function PostVideo({ uri, theme, duration }) {
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const player = useVideoPlayer(uri, (p) => {
+    p.muted = true;
+    p.loop = true;
+  });
+
+  useEffect(() => {
+    if (!uri) return undefined;
+    const sub = player.addListener("statusChange", ({ status, error }) => {
+      if (status === "readyToPlay") {
+        try {
+          player.play();
+        } catch {}
+      }
+      if (status === "error") setFailed(true);
+    });
+    return () => sub.remove();
+  }, [player, uri]);
+
+  if (failed || !uri) {
+    return (
+      <View style={[StyleSheet.absoluteFill, styles.mediaFallback]}>
+        <Ionicons
+          name="play-circle-outline"
+          size={layout.iconSize.xxl}
+          color={theme.text.muted}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+        allowsFullscreen={false}
+        onFirstFrameRender={() => setReady(true)}
+      />
+      {!ready ? (
+        <View
+          style={[StyleSheet.absoluteFill, styles.mediaFallback]}
+          pointerEvents="none"
+        >
+          <Ionicons
+            name="play-circle-outline"
+            size={layout.iconSize.xxl}
+            color={theme.text.muted}
+          />
+        </View>
+      ) : null}
+      {duration ? (
+        <View style={styles.videoDurationBadge}>
+          <Text variant="caption" color="default" style={styles.videoDurationText}>
+            {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, "0")}
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
+}
+
+function PostCard({ post, showOptions = true, showAuthor = true }) {
   const router = useRouter();
   const { theme, isDark } = useAppTheme();
   const toggleLike = useFeedStore((s) => s.toggleLike);
@@ -85,55 +196,15 @@ function PostCard({ post, showAuthor = true, showOptions = true, isVisible = tru
 
   if (!post) return null;
 
-  const isVideo = post.mediaType === "video";
-  const openPost = useCallback(() => {
-    if (isVideo) {
-      router.replace({
-        pathname: "/(main)/reels",
-        params: { initialReelId: post.id },
-      });
-    } else {
-      router.push(`/(main)/feeds/post/${post.id}`);
-    }
-  }, [router, post.id, isVideo]);
+  const openPost = useCallback(
+    () => router.navigate(`/(main)/feeds/post/${post.id}`),
+    [router, post.id],
+  );
 
   const author = post.author || {};
-  const likeCount = post.likesCount ?? post.likeCount ?? 0;
+  const likeCount = post.likesCount || post.likeCount || 0;
   const isTextOnly = !post.mediaUrl;
   const tags = extractTags(post.text);
-
-  // Video player for preview in feed (created for all posts, but only used for videos)
-  const [videoReady, setVideoReady] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-
-  const videoPlayer = useVideoPlayer(isVideo ? post.mediaUrl : null, (p) => {
-    p.loop = true;
-    p.muted = true;
-    p.timeUpdateEventInterval = 0;
-  });
-
-  // Auto-play when video becomes viewable
-  useEffect(() => {
-    if (!isVideo || !videoPlayer) return;
-
-    if (isVisible) {
-      videoPlayer.muted = isMuted;
-      const playPromise = videoPlayer.play();
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch(() => {});
-      }
-    } else {
-      videoPlayer.pause();
-    }
-  }, [isVideo, videoPlayer, isVisible, isMuted]);
-
-  const handleVolumeToggle = useCallback((e) => {
-    if (e) e.stopPropagation();
-    if (!videoPlayer) return;
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    videoPlayer.muted = nextMuted;
-  }, [videoPlayer, isMuted]);
 
   return (
     <View
@@ -147,63 +218,51 @@ function PostCard({ post, showAuthor = true, showOptions = true, isVisible = tru
       ]}
     >
       {showAuthor && (
-        <>
-          {/* Author row */}
-          <View style={styles.authorRow}>
-            <Pressable
-              style={styles.authorLeft}
-              onPress={() => router.navigate(`/profile/${author.id ?? "me"}`)}
-            >
-              <Avatar
-                uri={author.avatarUrl}
-                name={author.name || author.username}
-                size="md"
-              />
-              <View style={styles.authorMeta}>
-                <View style={styles.authorNameRow}>
-                  <View
-                    style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                  >
-                    <Text
-                      variant="bodyMedium"
-                      numberOfLines={1}
-                      style={{ flexShrink: 1 }}
-                    >
-                      {author.name || author.username || "Someone"}
-                    </Text>
-                    {author.id &&
-                      useProfileStore.getState().verifiedUsers[author.id] && (
-                        <VerifiedBadge
-                          size={20}
-                          color={
-                            useProfileStore.getState().getVerifiedBadge(author.id)
-                              .color
-                          }
-                          iconName="verified"
-                        />
-                      )}
-                  </View>
-                </View>
-                <Text variant="caption" color="tertiary">
-                  @{author.username || "user"} · {timeAgo(post.createdAt)}
+        {/* Author row */}
+        <View style={styles.authorRow}>
+          <Pressable
+            style={styles.authorLeft}
+            onPress={() => router.navigate(`/profile/${author.id || "me"}`)}
+          >
+            <Avatar
+              uri={author.avatarUrl}
+              name={author.name || author.username}
+              size="md"
+            />
+            <View style={styles.authorMeta}>
+              <View style={styles.authorNameRow}>
+                <Text variant="bodyMedium" numberOfLines={1}>
+                  {author.name || author.username || "Someone"}
                 </Text>
+                {author.id &&
+                  useProfileStore.getState().verifiedUsers[author.id] && (
+                    <VerifiedBadge
+                      size={20}
+                      color={
+                        useProfileStore.getState().getVerifiedBadge(author.id).color
+                      }
+                      iconName="verified"
+                    />
+                  )}
               </View>
+              <Text variant="caption" color="tertiary">
+                @{author.username || "user"} · {timeAgo(post.createdAt)}
+              </Text>
+            </View>
+          </Pressable>
+          {showOptions && (
+            <Pressable
+              hitSlop={spacing.sm}
+              onPress={() => showToast("Post options", "info")}
+            >
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={layout.iconSize.md}
+                color={theme.text.tertiary}
+              />
             </Pressable>
-
-            {showOptions && (
-              <Pressable
-                hitSlop={spacing.sm}
-                onPress={() => showToast("Post options", "info")}
-              >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={layout.iconSize.md}
-                  color={theme.text.tertiary}
-                />
-              </Pressable>
-            )}
-          </View>
-        </>
+          )}
+        </View>
       )}
 
       {/* Body */}
@@ -250,44 +309,21 @@ function PostCard({ post, showAuthor = true, showOptions = true, isVisible = tru
         </View>
       ) : null}
 
-      {/* Media */}
+      {/* Media (image or video) */}
       {post.mediaUrl ? (
         <Pressable onPress={openPost} style={styles.media}>
-          {isVideo && videoPlayer ? (
-            <View style={styles.videoContainer}>
-              <VideoView
-                player={videoPlayer}
-                style={styles.mediaInner}
-                contentFit="cover"
-                nativeControls={false}
-                onFirstFrameRender={() => setVideoReady(true)}
-              />
-              {!videoReady && (
-                <View style={[styles.mediaInner, styles.videoPlaceholder]}>
-                  <Ionicons
-                    name="film-outline"
-                    size={layout.iconSize.xxl}
-                    color={colors.textMuted}
-                  />
-                </View>
-              )}
-
-              {/* Volume toggle button */}
-              <Pressable style={styles.volumeButton} onPress={handleVolumeToggle}>
-                <Ionicons
-                  name={isMuted ? "volume-mute" : "volume-high"}
-                  size={layout.iconSize.md}
-                  color={colors.white}
-                />
-              </Pressable>
-            </View>
-          ) : !isVideo ? (
-            <Image
-              source={{ uri: post.mediaUrl }}
-              style={styles.mediaInner}
-              resizeMode="cover"
-            />
-          ) : null}
+          <View
+            style={[
+              styles.mediaInner,
+              {
+                backgroundColor: isDark
+                  ? colors.surfaceLight
+                  : theme.app.surface,
+              },
+            ]}
+          >
+            <PostMedia post={post} theme={theme} />
+          </View>
         </Pressable>
       ) : null}
 
@@ -323,7 +359,7 @@ function PostCard({ post, showAuthor = true, showOptions = true, isVisible = tru
             color={theme.text.tertiary}
           />
           <Text variant="caption" color="tertiary" style={styles.actionLabel}>
-            {formatCount(post.commentsCount ?? 0)}
+            {formatCount(post.commentsCount || 0)}
           </Text>
         </Pressable>
 
@@ -338,7 +374,7 @@ function PostCard({ post, showAuthor = true, showOptions = true, isVisible = tru
             color={post.isReposted ? colors.repost : theme.text.tertiary}
           />
           <Text variant="caption" color="tertiary" style={styles.actionLabel}>
-            {formatCount(post.repostsCount ?? 0)}
+            {formatCount(post.repostsCount || 0)}
           </Text>
         </Pressable>
 
@@ -441,26 +477,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  videoContainer: {
-    width: "100%",
-    aspectRatio: layout.post.imageAspectRatio,
-    borderRadius: layout.borderRadius.lg,
-    overflow: "hidden",
-    position: "relative",
-  },
-  videoPlaceholder: {
-    backgroundColor: colors.surfaceLight,
-  },
-  volumeButton: {
-    position: "absolute",
-    bottom: spacing.md,
-    right: spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadius.round,
+  mediaFallback: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  videoDurationBadge: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    borderRadius: layout.borderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  videoDurationText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  authorNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   tagsRow: {
     flexDirection: "row",

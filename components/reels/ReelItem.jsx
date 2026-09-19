@@ -94,6 +94,14 @@ function ReelItem({ reel, isActive, height, bottomInset = 0, shouldPreload = fal
   // Every hook runs before the null guard so the hook order never changes.
   const author = reel?.author || {};
   const authorId = author.id;
+  const displayName = author.name || author.username || "user";
+  const verifiedEntry = useProfileStore((s) =>
+    authorId ? s.verifiedUsers[authorId] : null,
+  );
+  const isVerified = Boolean(verifiedEntry);
+  const verifiedBadge = isVerified
+    ? useProfileStore.getState().getVerifiedBadge(authorId)
+    : null;
   const isFollowing = useProfileStore((s) =>
     authorId ? s.following.includes(authorId) : false,
   );
@@ -688,20 +696,29 @@ function ReelItem({ reel, isActive, height, bottomInset = 0, shouldPreload = fal
                   name={author.name || author.username}
                   size="sm"
                 />
-                {authorId && useProfileStore.getState().verifiedUsers[authorId] && (
-                  <VerifiedBadge
-                    size={18}
-                    color={useProfileStore.getState().getVerifiedBadge(authorId).color}
-                    iconName="check"
-                  />
-                )}
-                <Text
-                  variant="bodyMedium"
-                  numberOfLines={1}
-                  style={styles.authorName}
-                >
-                  {username}
-                </Text>
+                <View style={styles.authorMeta}>
+                  <View style={styles.authorNameRow}>
+                    <Text
+                      variant="bodyMedium"
+                      numberOfLines={1}
+                      style={styles.authorName}
+                    >
+                      {displayName}
+                    </Text>
+                    {isVerified && (
+                      <VerifiedBadge
+                        size={18}
+                        color={verifiedBadge.iconColor || verifiedBadge.color}
+                        iconName="verified"
+                      />
+                    )}
+                  </View>
+                  {author.username ? (
+                    <Text variant="caption" numberOfLines={1} style={styles.authorUsername}>
+                      @{author.username}
+                    </Text>
+                  ) : null}
+                </View>
               </Pressable>
 
               <Pressable
@@ -1217,13 +1234,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexShrink: 1,
+    minWidth: 0,
+  },
+  authorMeta: {
+    flexShrink: 1,
+    minWidth: 0,
+    marginLeft: spacing.sm,
+  },
+  authorNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   authorName: {
-    marginLeft: spacing.sm,
     flexShrink: 1,
+    minWidth: 0,
     color: colors.white,
     textShadowColor: "rgba(0,0,0,0.45)",
     textShadowRadius: 6,
+  },
+  authorUsername: {
+    marginTop: 1,
+    color: "rgba(255,255,255,0.72)",
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowRadius: 4,
   },
   followPill: {
     marginLeft: spacing.md,

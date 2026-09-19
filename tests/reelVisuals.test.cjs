@@ -199,10 +199,6 @@ test("ReelItem keeps hooks above the null guard", () => {
 
   // ReelScrubber uses useRef and useCallback at module level, not inside
   // ReelItem, so it's fine.
-  const body = REEL_ITEM.slice(start, REEL_ITEM.indexOf("export default memo(ReelItem)"));
-  // Scoped to ReelItem's own body (up to the next top-level component) — the
-  // leaf components defined below it (ReelScrubber etc.) are separate
-  // components and may use hooks freely.
   const body = REEL_ITEM.slice(start, REEL_ITEM.indexOf("const ReelScrubber"));
   const before = body.slice(0, body.indexOf("if (!reel) return null;"));
   for (const hook of ["useReelStore", "useProfileStore", "useAppStore", "useCallback", "useEffect", "useMemo", "useRef"]) {

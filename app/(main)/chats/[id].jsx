@@ -31,7 +31,8 @@ import useAppStore from "../../../stores/appStore";
 import useAuthStore from "../../../stores/authStore";
 import useAppTheme from "../../../hooks/useAppTheme";
 import { Header, Screen } from "../../../components/common";
-import { Avatar, EmptyState, IconButton, Text } from "../../../components/ui";
+import { Avatar, EmptyState, IconButton, Text, VerifiedBadge } from "../../../components/ui";
+import useProfileStore from "../../../stores/profileStore";
 import MessageBubble from "../../../components/chats/MessageBubble";
 import ChatInput from "../../../components/chats/ChatInput";
 import VoicePlayer from "../../../components/chats/VoicePlayer";
@@ -135,6 +136,12 @@ export default function ChatThreadScreen() {
   const peer = conversation?.participants?.[0] || {};
   const isGroup = conversation?.type === "group";
   const title = isGroup ? conversation.name : peer.name || peer.username;
+  const isVerified = useProfileStore((s) =>
+    Boolean(!isGroup && peer?.id && s.verifiedUsers[peer.id]),
+  );
+  const verifiedBadge = isVerified
+    ? useProfileStore.getState().getVerifiedBadge(peer.id)
+    : null;
 
   // The composer (components/chats/ChatInput) owns the draft, recording and
   // attachment-sheet state. It reports typing changes so the store can broadcast
@@ -450,14 +457,23 @@ export default function ChatThreadScreen() {
             )}
           </View>
           <View style={styles.titleColumn}>
-            <Text
-              variant="subtitle"
-              color="default"
-              numberOfLines={1}
-              onPress={openChatInfo}
-            >
-              {title}
-            </Text>
+            <View style={styles.titleLine}>
+              <Text
+                variant="subtitle"
+                color="default"
+                numberOfLines={1}
+                onPress={openChatInfo}
+              >
+                {title}
+              </Text>
+              {verifiedBadge && (
+                <VerifiedBadge
+                  size={18}
+                  color={verifiedBadge.iconColor || verifiedBadge.color}
+                  iconName="verified"
+                />
+              )}
+            </View>
             {subtitle && (
               <Text variant="caption" color="tertiary" numberOfLines={1}>
                 {subtitle}
@@ -479,14 +495,23 @@ export default function ChatThreadScreen() {
           />
         </Pressable>
         <View style={styles.titleColumn}>
-          <Text
-            variant="subtitle"
-            color="default"
-            numberOfLines={1}
-            onPress={openChatInfo}
-          >
-            {title}
-          </Text>
+          <View style={styles.titleLine}>
+            <Text
+              variant="subtitle"
+              color="default"
+              numberOfLines={1}
+              onPress={openChatInfo}
+            >
+              {title}
+            </Text>
+            {verifiedBadge && (
+              <VerifiedBadge
+                size={18}
+                color={verifiedBadge.iconColor || verifiedBadge.color}
+                iconName="verified"
+              />
+            )}
+          </View>
           {subtitle && (
             <Text variant="caption" color="tertiary" numberOfLines={1}>
               {subtitle}
@@ -1010,6 +1035,10 @@ const styles = StyleSheet.create({
   titleColumn: {
     flex: 1,
     minWidth: 0,
+  },
+  titleLine: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   content: {
     paddingVertical: spacing.md,

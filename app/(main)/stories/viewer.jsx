@@ -12,7 +12,8 @@ import colors from "../../../constants/colors";
 import layout from "../../../constants/layout";
 import spacing from "../../../constants/spacing";
 import useStoryStore from "../../../stores/storyStore";
-import { Avatar, IconButton, Text } from "../../../components/ui";
+import { Avatar, IconButton, Text, VerifiedBadge } from "../../../components/ui";
+import useProfileStore from "../../../stores/profileStore";
 
 const STORY_DURATION = 5000;
 
@@ -65,6 +66,13 @@ export default function StoryViewerScreen() {
   const story = currentStory();
   const group = groups.find((g) => g.id === viewerGroupId);
   const author = group?.author || {};
+  const displayName = author.name || author.username || "user";
+  const isVerified = useProfileStore((s) =>
+    Boolean(author?.id && s.verifiedUsers[author.id]),
+  );
+  const verifiedBadge = isVerified
+    ? useProfileStore.getState().getVerifiedBadge(author.id)
+    : null;
 
   // Auto-advance timer.
   useEffect(() => {
@@ -85,7 +93,7 @@ export default function StoryViewerScreen() {
     });
 
     return () => animation.stop();
-  }, [story?.id, isPaused, progress, markSeen, nextStory, story]);
+  }, [story?.id, isPaused, progress, markSeen, nextStory]);
 
   const close = useCallback(() => {
     closeViewer();
@@ -174,14 +182,30 @@ export default function StoryViewerScreen() {
       <View style={[styles.header, { top: insets.top + spacing.xl }]}>
         <Avatar uri={author.avatarUrl} name={author.name || author.username} size="sm" />
         <View style={styles.headerMeta}>
-          <Text variant="bodySmall" style={styles.headerName}>
-            {author.username || author.name || "user"}
-          </Text>
-          {startTime ? (
-            <Text variant="caption" style={styles.headerTime}>
-              {Math.max(1, Math.round((Date.now() - startTime.getTime()) / 3600000))}h ago
+          <View style={styles.headerIdentity}>
+            <Text variant="bodySmall" style={styles.headerName}>
+              {displayName}
             </Text>
-          ) : null}
+            {verifiedBadge && (
+              <VerifiedBadge
+                size={18}
+                color={verifiedBadge.iconColor || verifiedBadge.color}
+                iconName="verified"
+              />
+            )}
+          </View>
+          <View style={styles.headerDetails}>
+            {author.username ? (
+              <Text variant="caption" style={styles.headerUsername}>
+                @{author.username}
+              </Text>
+            ) : null}
+            {startTime ? (
+              <Text variant="caption" style={styles.headerTime}>
+                {Math.max(1, Math.round((Date.now() - startTime.getTime()) / 3600000))}h ago
+              </Text>
+            ) : null}
+          </View>
         </View>
         <IconButton name="close" color={colors.white} onPress={close} />
       </View>
@@ -277,9 +301,23 @@ const styles = StyleSheet.create({
   headerMeta: {
     flex: 1,
     marginLeft: spacing.sm,
+    minWidth: 0,
+  },
+  headerIdentity: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
   },
   headerName: {
     color: colors.white,
+  },
+  headerUsername: {
+    color: "rgba(255,255,255,0.72)",
+    marginRight: spacing.sm,
   },
   headerTime: {
     color: "rgba(255,255,255,0.7)",

@@ -3,7 +3,6 @@
 // shortcuts in the header.
 
 import React, { useCallback, useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import colors from "../../../constants/colors";

@@ -84,10 +84,12 @@ export default function TabBar({ state, descriptors, navigation }) {
   }
 
   // If a nested stack inside the active tab is showing a sub-screen, hide TabBar
+  // Exception: reels tab shows TabBar on "index" route even with params
   if (currentTabRoute?.state) {
     const activeSubRoute =
       currentTabRoute.state.routes[currentTabRoute.state.index];
-    if (activeSubRoute && activeSubRoute.name !== "index") {
+    const isReelsIndex = currentTabName === "reels" && activeSubRoute?.name === "index";
+    if (activeSubRoute && activeSubRoute.name !== "index" && !isReelsIndex) {
       return null;
     }
   }

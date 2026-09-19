@@ -3,8 +3,8 @@
 // Owns pull-to-refresh, infinite scroll, loading and empty/error states so the
 // screens stay declarative.
 
-import React, { useCallback, useEffect } from "react";
-import { FlatList, RefreshControl, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FlatList, RefreshControl, StyleSheet, View } from "react-native";
 import colors from "../../constants/colors";
 import spacing from "../../constants/spacing";
 import useAppTheme from "../../hooks/useAppTheme";
@@ -40,7 +40,21 @@ export default function FeedList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feed]);
 
-  const renderItem = useCallback(({ item }) => <PostCard post={item} />, []);
+  const [visibleItems, setVisibleItems] = useState({});
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }) => {
+    const newVisible = {};
+    viewableItems?.forEach(({ item, isViewable }) => {
+      if (item?.id) newVisible[item.id] = isViewable;
+    });
+    setVisibleItems((prev) => ({ ...prev, ...newVisible }));
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item }) => <PostCard post={item} isVisible={visibleItems[item.id] ?? false} />,
+    [visibleItems],
+  );
 
   if (feedState?.isLoading && data.length === 0) {
     return <Loading label="Loading your feed…" />;
@@ -99,6 +113,8 @@ export default function FeedList({
           <Spinner style={styles.footer} />
         ) : null
       }
+      onViewableItemsChanged={onViewableItemsChanged}
+      viewabilityConfig={viewabilityConfig}
     />
   );
 }

@@ -28,6 +28,14 @@ const REEL_SOURCES = [
   "https://www.pexels.com/download/video/853889/",
 ];
 
+// Small, fast MP4 test clips for video posts in the feed. HEAD-verified (200 +
+// video/mp4, ~1 MB, 10 s) so they pre-roll quickly. Reused from the reel set.
+const VIDEO_SOURCES = [
+  "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
+  "https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4",
+  "https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4",
+];
+
 const AVATARS = {
   ada: "https://i.pravatar.cc/200?img=32",
   grace: "https://i.pravatar.cc/200?img=45",
@@ -105,11 +113,20 @@ export function makePosts(count = 20, offset = 0) {
   return Array.from({ length: count }, (_, i) => {
     const n = offset + i;
     const author = authors[n % authors.length];
+    const hasMedia = n % 4 === 0;
+    const isVideo = hasMedia && n % 8 === 4;
+    const mediaUrl = hasMedia
+      ? isVideo
+        ? VIDEO_SOURCES[n % VIDEO_SOURCES.length]
+        : `https://picsum.photos/seed/g${n}/800/800`
+      : null;
     return {
       id: `p_${n + 1}`,
       author,
       text: LOREM[n % LOREM.length],
-      mediaUrl: n % 4 === 0 ? `https://picsum.photos/seed/g${n}/800/800` : null,
+      mediaUrl,
+      mediaType: hasMedia ? (isVideo ? "video" : "image") : null,
+      duration: isVideo ? 10 + (n % 20) : undefined,
       likesCount: 12 + ((n * 7) % 480),
       commentsCount: (n * 3) % 45,
       repostsCount: (n * 2) % 30,
@@ -417,12 +434,20 @@ export function makeNotifications(count = 18, offset = 0) {
   const TYPES = ["like", "comment", "follow", "mention", "repost", "message"];
   return Array.from({ length: count }, (_, i) => {
     const n = offset + i;
+    const type = TYPES[n % TYPES.length];
+    const hasPost = n % 2 === 0;
+    const postId = hasPost ? `p_${(n % 20) + 1}` : null;
+    const commentId = (type === "comment" || type === "mention") && hasPost ? `c_${n + 1}` : null;
+    const reelId = type === "repost" && hasPost ? `r_${(n % 12) + 1}` : null;
+
     return {
       id: `n_${n + 1}`,
-      type: TYPES[n % TYPES.length],
+      type,
       actor: authors[n % authors.length],
       preview: n % 3 === 0 ? LOREM[n % LOREM.length].slice(0, 48) : null,
-      postId: n % 2 === 0 ? `p_${(n % 20) + 1}` : null,
+      postId,
+      commentId,
+      reelId,
       isRead: n > 4,
       createdAt: hoursAgo(n + 1),
     };

@@ -13,10 +13,15 @@ export default function useAppTheme() {
   const systemScheme = useColorScheme();
   const themeMode = useAppStore((state) => state.themeMode);
 
-  const theme = useMemo(() => {
-    const scheme = themeMode === "system" ? systemScheme : themeMode;
-    return scheme === "light" ? lightTheme : darkTheme;
-  }, [themeMode, systemScheme]);
+  const scheme = useMemo(
+    () => (themeMode === "system" ? systemScheme ?? "dark" : themeMode),
+    [themeMode, systemScheme],
+  );
 
-  return { theme, colors, isDark: theme.dark };
+  const theme = useMemo(
+    () => (scheme === "light" ? lightTheme : darkTheme),
+    [scheme],
+  );
+
+  return useMemo(() => ({ theme, colors, isDark: theme.dark }), [theme]);
 }

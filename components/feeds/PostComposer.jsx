@@ -5,6 +5,7 @@
 import React, { useCallback, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import colors from "../../constants/colors";
 import config from "../../constants/config";
@@ -41,7 +42,7 @@ export default function PostComposer({
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ["images", "videos"],
       allowsMultipleSelection: true,
       selectionLimit: layout.post.maxImages,
       quality: 0.9,
@@ -51,7 +52,14 @@ export default function PostComposer({
 
   const submit = useCallback(() => {
     if (!canSubmit) return;
-    onSubmit?.({ text: text.trim(), media, mediaUrl: media[0]?.uri ?? null });
+    const first = media[0];
+    onSubmit?.({
+      text: text.trim(),
+      media,
+      mediaUrl: first?.uri ?? null,
+      mediaType: first?.mediaType ?? null,
+      duration: first?.duration ?? null,
+    });
   }, [canSubmit, onSubmit, text, media]);
 
   return (
@@ -110,11 +118,20 @@ export default function PostComposer({
                 },
               ]}
             >
-              <Ionicons
-                name="image-outline"
-                size={layout.iconSize.lg}
-                color={theme.text.muted}
+              <Image
+                source={{ uri: asset.uri }}
+                style={styles.mediaTileImage}
+                contentFit="cover"
+                transition={150}
               />
+              {asset.mediaType === "video" ? (
+                <Ionicons
+                  name="videocam"
+                  size={20}
+                  color={colors.white}
+                  style={styles.mediaTypeIcon}
+                />
+              ) : null}
               <Pressable
                 style={styles.removeMedia}
                 onPress={() => setMedia((m) => m.filter((_, i) => i !== index))}
@@ -202,6 +219,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  mediaTileImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mediaTypeIcon: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: layout.borderRadius.round,
+    padding: 2,
   },
   removeMedia: {
     position: "absolute",

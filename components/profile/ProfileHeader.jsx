@@ -66,21 +66,23 @@ export default function ProfileHeader({
         </View>
       </View>
 
-      <Text variant="title" style={styles.name}>
-        {profile.name || profile.username}
-      </Text>
+      <View style={styles.nameRow}>
+        <Text variant="title" style={styles.name}>
+          {profile.name || profile.username}
+        </Text>
+        {profile.id && useProfileStore.getState().verifiedUsers[profile.id] && (
+          <VerifiedBadge
+            size={24}
+            color={useProfileStore.getState().getVerifiedBadge(profile.id).color}
+            iconName="verified"
+          />
+        )}
+      </View>
       {profile.username ? (
         <Text variant="bodySmall" color="secondary_text" style={styles.handle}>
           @{profile.username}
         </Text>
       ) : null}
-      {profile.id && useProfileStore.getState().verifiedUsers[profile.id] && (
-        <VerifiedBadge
-          size={24}
-          color={useProfileStore.getState().getVerifiedBadge(profile.id).color}
-          iconName="verified"
-        />
-      )}
 
       {profile.bio ? (
         <Text variant="body" style={styles.bio}>
@@ -129,6 +131,10 @@ const styles = StyleSheet.create({
   },
   shareButton: {
     marginLeft: spacing.sm,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   name: {
     marginBottom: spacing.xxs,

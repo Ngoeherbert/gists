@@ -19,6 +19,7 @@ export default function ReelsLayout() {
         name="index"
         options={{ tabBarStyle: { display: "flex" } }}
       />
+      <Stack.Screen name="[id]" />
       <Stack.Screen name="comments/[id]" />
       <Stack.Screen name="editor" />
       <Stack.Screen name="preview" />

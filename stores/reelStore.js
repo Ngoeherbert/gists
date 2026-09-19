@@ -197,7 +197,11 @@ const useReelStore = create((set, get) => ({
   // Playback
   // -------------------------------------------------------------------------
   setActiveReel: (activeReelId) =>
-    set({ activeReelId, isPlaying: true, position: 0 }),
+    set((state) =>
+      state.activeReelId === activeReelId
+        ? { isPlaying: true }
+        : { activeReelId, isPlaying: true, position: 0 },
+    ),
   setPlaying: (isPlaying) => set({ isPlaying }),
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
   setPosition: (position) => set({ position }),

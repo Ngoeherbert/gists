@@ -21,10 +21,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams } from "expo-router";
 import colors from "../../../constants/colors";
 import layout from "../../../constants/layout";
 import spacing from "../../../constants/spacing";
 import useReelStore from "../../../stores/reelStore";
+import useFeedStore from "../../../stores/feedStore";
 import { Button, Loading, Text } from "../../../components/ui";
 import ReelItem from "../../../components/reels/ReelItem";
 
@@ -46,17 +48,23 @@ const GLASS_BORDER = "rgba(255, 255, 255, 0.22)";
 export default function ReelsScreen() {
   const insets = useSafeAreaInsets();
   const listRef = useRef(null);
+  const { initialReelId } = useLocalSearchParams();
 
   const feed = useReelStore((s) => s.homeFeed);
   const followingFeed = useReelStore((s) => s.followingFeed);
   const reels = useReelStore((s) => s.reels);
   const setActiveReel = useReelStore((s) => s.setActiveReel);
   const fetchReels = useReelStore((s) => s.fetchReels);
+  const upsertReel = useReelStore((s) => s.upsertReel);
   const incrementView = useReelStore((s) => s.incrementView);
+
+  // Also check feed store for video posts that might be opened as reels
+  const feedPosts = useFeedStore((s) => s.posts);
 
   const [viewportHeight, setViewportHeight] = useState(WINDOW_HEIGHT);
   const [index, setIndex] = useState(0);
   const [feedType, setFeedType] = useState("home");
+  const [initialScrollDone, setInitialScrollDone] = useState(false);
 
   const currentFeed = feedType === "home" ? feed : followingFeed;
   const data = useMemo(
@@ -67,14 +75,71 @@ export default function ReelsScreen() {
   const topInset = insets.top + spacing.sm;
   const bottomInset = TAB_BAR_CLEARANCE + insets.bottom;
 
+  // If initialReelId is a feed post (p_ prefix), upsert it into reelStore
+  useEffect(() => {
+    if (initialReelId && !reels[initialReelId] && feedPosts[initialReelId]) {
+      const post = feedPosts[initialReelId];
+      if (post.mediaType === "video" && post.mediaUrl) {
+        upsertReel({
+          id: post.id,
+          author: post.author,
+          caption: post.text,
+          videoUri: post.mediaUrl,
+          audioName: "Original audio",
+          likesCount: post.likesCount ?? 0,
+          commentsCount: post.commentsCount ?? 0,
+          repostsCount: post.repostsCount ?? 0,
+          sharesCount: post.sharesCount ?? 0,
+          viewsCount: 0,
+          isLiked: post.isLiked ?? false,
+          isReposted: post.isReposted ?? false,
+          isSaved: post.isSaved ?? false,
+          createdAt: post.createdAt,
+        });
+        // Also add to homeFeed ids so it appears in the list
+        useReelStore.setState((state) => ({
+          homeFeed: {
+            ...state.homeFeed,
+            ids: [post.id, ...state.homeFeed.ids.filter((id) => id !== post.id)],
+          },
+        }));
+      }
+    }
+  }, [initialReelId, reels, feedPosts, upsertReel]);
+
+  // Reset scroll done when initialReelId changes
+  useEffect(() => {
+    setInitialScrollDone(false);
+  }, [initialReelId]);
+
+  // Scroll to initial reel when data is available
+  useEffect(() => {
+    if (initialReelId && data.length > 0 && !initialScrollDone) {
+      const targetIndex = data.findIndex((item) => item.id === initialReelId);
+      if (targetIndex >= 0) {
+        setIndex(targetIndex);
+        setActiveReel(initialReelId);
+        listRef.current?.scrollToIndex({
+          index: targetIndex,
+          animated: false,
+          viewPosition: 0,
+        });
+        setInitialScrollDone(true);
+      }
+    }
+  }, [initialReelId, data, initialScrollDone, setActiveReel]);
+
   // Switching feeds has to reset the pager, otherwise the new list inherits the
   // old scroll offset and the wrong reel looks active.
   useEffect(() => {
     if ((currentFeed.ids ?? []).length === 0 && !currentFeed.isLoading) {
       fetchReels({ feedType });
     }
-    setIndex(0);
-    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    // Don't reset index if we have an initial reel to scroll to
+    if (!initialReelId || initialScrollDone) {
+      setIndex(0);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedType]);
 
@@ -82,12 +147,17 @@ export default function ReelsScreen() {
     fetchReels({ refresh: true, feedType });
   }, [fetchReels, feedType]);
 
+  const lastViewedReelIdRef = useRef(null);
+
   const onViewableChange = useRef(({ viewableItems }) => {
     const first = viewableItems?.[0];
     if (!first) return;
     setIndex(first.index ?? 0);
     setActiveReel(first.item.id);
-    incrementView(first.item.id);
+    if (first.item.id !== lastViewedReelIdRef.current) {
+      lastViewedReelIdRef.current = first.item.id;
+      incrementView(first.item.id);
+    }
   }).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;

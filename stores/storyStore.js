@@ -158,6 +158,7 @@ const useStoryStore = create((set, get) => ({
   markSeen: (storyId) => {
     if (!storyId) return;
     set((state) => {
+      if (state.seen[storyId]) return state;
       const seen = { ...state.seen, [storyId]: true };
       const groupIndex = state.groups.findIndex((group) =>
         Array.isArray(group.stories) && group.stories.some((story) => story?.id === storyId),
