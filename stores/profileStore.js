@@ -9,6 +9,7 @@ import {
   profileListProvider,
   profileProvider,
 } from "../utils/mockApi";
+import { VERIFIED_USERS } from "../utils/mockApi";
 
 const PAGE_LIMIT = config.pagination.defaultLimit;
 
@@ -51,6 +52,11 @@ const initialState = {
   // Edit profile
   isSaving: false,
   error: null,
+
+  // Verified accounts: three tiers — blue, gold and custom (any preferred
+  // colour). White badges render black-on-light and white-on-dark for contrast
+  // in both modes. The VerifiedBadge component consumes getVerifiedBadge(userId).
+  verifiedUsers: VERIFIED_USERS,
 
   // Injectable API seam — see utils/mockApi.js for the local defaults.
   providers: {},
@@ -121,6 +127,29 @@ const useProfileStore = create((set, get) => ({
     }
   },
 
+  // -------------------------------------------------------------------------
+  // Verified accounts: three tiers — blue, gold and custom (any preferred
+  // colour). White badges render black-on-light and white-on-dark for contrast
+  // in both modes. The VerifiedBadge component consumes getVerifiedBadge(userId).
+  // -------------------------------------------------------------------------
+  getVerifiedBadge: (userId) => {
+    const entry = get().verifiedUsers[userId];
+    if (!entry) return { tier: "none", color: "#34B7F1" };
+    const tier = entry.tier;
+    const color = entry.color || "#34B7F1";
+    const isWhiteBadge = color === "#FFFFFF" || color.toLowerCase() === "#ffffff";
+    const isDarkTheme = get().themeMode === "dark";
+    const iconColor = isWhiteBadge
+      ? (isDarkTheme ? "#FFFFFF" : "#000000")
+      : color;
+    return { tier, color, iconColor, isWhiteBadge, isDarkTheme };
+  },
+  setVerifiedBadge: (userId, { tier, color }) =>
+    set((state) => ({
+      verifiedUsers: { ...state.verifiedUsers, [userId]: { tier, color } },
+    })),
+
+  // Share / QR payload used by profile/share
   // -------------------------------------------------------------------------
   // Other users' profiles
   // -------------------------------------------------------------------------
@@ -196,8 +225,6 @@ const useProfileStore = create((set, get) => ({
   refreshList: ({ type, userId, fetchPage }) =>
     get().fetchList({ type, userId, refresh: true, fetchPage }),
 
-  loadMoreList: ({ type, userId, fetchPage }) => get().fetchList({ type, userId, fetchPage }),
-
   resetList: ({ type, userId }) =>
     set((state) => ({
       lists: { ...state.lists, [listKey(type, userId)]: makeList() },
@@ -264,7 +291,6 @@ const useProfileStore = create((set, get) => ({
       message: me.bio || "Check out my Gists profile",
     };
   },
-
   clearError: () => set({ error: null }),
 
   reset: () =>
@@ -275,3 +301,13 @@ const useProfileStore = create((set, get) => ({
 }));
 
 export default useProfileStore;
+
+// Exported helpers for use in components
+export const verifiedBadge = {
+  tiers: {
+    blue: { tier: "blue", color: "#34B7F1" },
+    gold: { tier: "gold", color: "#FFD700" },
+    custom: { tier: "custom" },
+  },
+  defaultColor: "#34B7F1",
+};

@@ -16,3 +16,4 @@ export { default as SegmentedControl } from "./SegmentedControl";
 export { default as Loading, Spinner } from "./Loading";
 export { default as Toast } from "./Toast";
 export { default as AppIcon, ICON_PROVIDERS } from "./AppIcon";
+export { VerifiedBadge } from "./VerifiedBadge";

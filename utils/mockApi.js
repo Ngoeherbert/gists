@@ -9,6 +9,25 @@
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Public-domain sample clips so the reel pager plays real video through
+// expo-video. Direct, playable MP4s only (HEAD-verified: 200 + video/mp4,
+// 1-8 MB each) so the first frame lands fast on mobile data — the old
+// 86 MB 4-K source never pre-rolled, leaving only the poster visible.
+// Pexels download endpoints 302 to their CDN, which both players follow
+// natively. Swap for CDN URLs when the backend lands — the player only
+// needs a URI.
+const REEL_SOURCES = [
+  // ~1 MB / 10s test clips first, so the opening reels load fastest.
+  "https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4",
+  "https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4",
+  "https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4",
+  // Short Pexels clips (5-8 MB) for variety. The deterministic gradient
+  // posters in utils/reelVisuals.js stay painted underneath until each
+  // video's first frame renders, and remain the fallback for reel-less rows.
+  "https://www.pexels.com/download/video/1093662/",
+  "https://www.pexels.com/download/video/853889/",
+];
+
 const AVATARS = {
   ada: "https://i.pravatar.cc/200?img=32",
   grace: "https://i.pravatar.cc/200?img=45",
@@ -53,6 +72,13 @@ export const PEOPLE = {
     avatarUrl: AVATARS.linus,
     isOnline: true,
   },
+};
+
+// Pre-populated verified users for demo purposes
+export const VERIFIED_USERS = {
+  [PEOPLE.ada.id]: { tier: "blue", color: "#34B7F1" },
+  [PEOPLE.grace.id]: { tier: "gold", color: "#FFD700" },
+  [PEOPLE.linus.id]: { tier: "custom", color: "#722ED1" },
 };
 
 const LOREM = [
@@ -104,13 +130,15 @@ export function makeReels(count = 12, offset = 0) {
       id: `r_${n + 1}`,
       author: authors[n % authors.length],
       caption: LOREM[(n + 3) % LOREM.length],
-      videoUri: null,
+      videoUri: REEL_SOURCES[n % REEL_SOURCES.length],
       audioName: `Original audio · ${authors[n % authors.length].username}`,
       likesCount: 40 + ((n * 13) % 900),
       commentsCount: (n * 5) % 80,
+      repostsCount: (n * 7) % 25,
       sharesCount: n % 20,
       viewsCount: 300 + n * 47,
       isLiked: false,
+      isReposted: false,
       isSaved: false,
       createdAt: hoursAgo(n * 5 + 2),
     };
@@ -531,9 +559,11 @@ export const createReelProvider = async (payload) => ({
   id: `r_${Date.now()}`,
   likesCount: 0,
   commentsCount: 0,
+  repostsCount: 0,
   sharesCount: 0,
   viewsCount: 0,
   isLiked: false,
+  isReposted: false,
   isSaved: false,
   createdAt: new Date().toISOString(),
   ...payload,

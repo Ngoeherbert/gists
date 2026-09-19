@@ -24,16 +24,20 @@ const makeFeed = () => ({
 
 const initialState = {
   homeFeed: makeFeed(),
-  followingFeed: {},
+  followingFeed: makeFeed(),
   reels: {}, // reelId -> reel
   comments: {}, // reelId -> { ids, byId, cursor, hasMore, isLoading }
 
   // Playback (only one reel plays at a time)
   activeReelId: null,
   isPlaying: false,
-  isMuted: true,
   position: 0,
   duration: 0,
+
+  // Viewing preference (off by default): when the visible reel finishes,
+  // advance to the next one instead of looping. Toggled from the reel
+  // options sheet.
+  autoScrollEnabled: false,
 
   // Composer / editor
   draft: null,
@@ -149,6 +153,46 @@ const useReelStore = create((set, get) => ({
       };
     }),
 
+  // Reposts — optimistic and reversible, mirroring feedStore.toggleRepost.
+  toggleRepost: async ({ reelId, repost, unrepost }) => {
+    const reel = get().reels[reelId];
+    if (!reel) return;
+    const wasReposted = Boolean(reel.isReposted);
+    const count = reel.repostsCount ?? 0;
+
+    get().upsertReel({
+      ...reel,
+      isReposted: !wasReposted,
+      repostsCount: wasReposted ? Math.max(0, count - 1) : count + 1,
+    });
+
+    try {
+      const fn = wasReposted ? unrepost : repost;
+      if (typeof fn === "function") await fn(reelId);
+    } catch (error) {
+      get().upsertReel({ ...reel, isReposted: wasReposted, repostsCount: count });
+      set({ error: error.message || "Failed to update repost" });
+    }
+  },
+
+  // "Hide" from the reel options sheet: drop the reel from every feed and
+  // the cache so the pager unmounts its row immediately.
+  hideReel: (reelId) =>
+    set((state) => {
+      const { [reelId]: _removed, ...reels } = state.reels;
+      return {
+        reels,
+        homeFeed: {
+          ...state.homeFeed,
+          ids: state.homeFeed.ids.filter((id) => id !== reelId),
+        },
+        followingFeed: {
+          ...state.followingFeed,
+          ids: state.followingFeed.ids.filter((id) => id !== reelId),
+        },
+      };
+    }),
+
   // -------------------------------------------------------------------------
   // Playback
   // -------------------------------------------------------------------------
@@ -156,9 +200,11 @@ const useReelStore = create((set, get) => ({
     set({ activeReelId, isPlaying: true, position: 0 }),
   setPlaying: (isPlaying) => set({ isPlaying }),
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
-  toggleMute: () => set((state) => ({ isMuted: !state.isMuted })),
   setPosition: (position) => set({ position }),
   setDuration: (duration) => set({ duration }),
+
+  toggleAutoScroll: () =>
+    set((state) => ({ autoScrollEnabled: !state.autoScrollEnabled })),
 
   // -------------------------------------------------------------------------
   // Engagement (optimistic)
